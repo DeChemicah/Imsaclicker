@@ -269,7 +269,8 @@
     seasons: 0,
     pushUntil: 0, pushReadyAt: 0,
     stats: defaultStats(),
-    settings: { haptics: true, autoRace: true },
+    settings: { haptics: true, autoRace: true, photos: true },
+    photos: {},
     lastSave: Date.now(),
   });
 
@@ -293,6 +294,7 @@
     out.stats.titles = [0, 1, 2, 3].map(i => (out.stats.titles && out.stats.titles[i]) || 0);
     out.settings = Object.assign(d.settings, s.settings || {});
     out.heritage = Object.assign({}, s.heritage || {});
+    out.photos = Object.assign({}, s.photos || {});
     out.ach = (s.ach || []).filter(id => ACHIEVEMENTS.some(a => a.id === id));
     out.license = Math.max(0, Math.min(3, out.license | 0));
     out.raceClass = Math.max(0, Math.min(3, out.raceClass | 0));
@@ -535,7 +537,7 @@
     if (!elig.includes(S.raceClass)) S.raceClass = elig[elig.length - 1];
     renderCar();
     buzz([20, 40, 20]);
-    modal(`New car: ${car.name}`, `<div class="modal-car">${carSVG(car)}</div><p>Pace <b>${car.pace}</b> · ${PERK_TEXT[car.perk[0]](car.perk[1])}</p><p>Every car in your garage adds <b>+${pct(CAR_BONUS)}</b> income.</p>`, [{ label: 'Take it out' }]);
+    modal(`New car: ${car.name}`, `<div class="modal-car">${carVisual(car, 640)}</div><p>Pace <b>${car.pace}</b> · ${PERK_TEXT[car.perk[0]](car.perk[1])}</p><p>Every car in your garage adds <b>+${pct(CAR_BONUS)}</b> income.</p>`, [{ label: 'Take it out' }]);
   }
 
   function equipCar(id) {
@@ -760,6 +762,59 @@
     return window.CarArt.svg(car.id, { num: car.num, cls: CLASSES[KIND_CLASS[car.kind]].color });
   }
 
+  // Real photos (see photos.js); the drawing is the fallback.
+  let photoVer = 0;
+  const photoTried = {};
+  const photoFailed = {};
+  function photoOf(id) {
+    if (!S.settings.photos || !window.CarPhotos) return null;
+    const p = S.photos[id];
+    return p && !photoFailed[p.url] ? p : null;
+  }
+  function ensurePhoto(id) {
+    if (!S.settings.photos || !window.CarPhotos || S.photos[id] || photoTried[id]) return;
+    photoTried[id] = true;
+    CarPhotos.search(id).then(list => {
+      const i = list.findIndex(p => !photoFailed[p.url]);
+      if (i < 0) return;
+      S.photos[id] = Object.assign({ i }, list[i]);
+      photoChanged(id);
+    });
+  }
+  function nextPhoto(id) {
+    CarPhotos.search(id).then(list => {
+      if (!list.length) { toast('📷 No photos found for this car right now'); return; }
+      const cur = S.photos[id] ? S.photos[id].i : -1;
+      for (let k = 1; k <= list.length; k++) {
+        const i = (cur + k) % list.length;
+        if (!photoFailed[list[i].url]) { S.photos[id] = Object.assign({ i }, list[i]); break; }
+      }
+      photoChanged(id);
+      toast(`📷 Photo ${S.photos[id].i + 1} of ${list.length}`);
+    });
+  }
+  function photoChanged(id) {
+    photoVer++;
+    if (id === S.activeCar) renderCar();
+    renderPanel(activeTab, false);
+  }
+  const photoCredit = (p) => `📷 ${esc(p.artist || 'Wikimedia Commons')}${p.license ? ' · ' + esc(p.license) : ''}`;
+  function carVisual(car, w) {
+    const p = photoOf(car.id);
+    if (!p) { ensurePhoto(car.id); return carSVG(car); }
+    return `<img class="car-photo" data-car="${car.id}" src="${esc(CarPhotos.sized(p.url, w))}" alt="${esc(car.name)}" crossorigin="anonymous" referrerpolicy="no-referrer" decoding="async">`;
+  }
+  // A photo that won't load: retry once without CORS, then fall back to the drawing.
+  document.addEventListener('error', (e) => {
+    const img = e.target;
+    if (!img.classList || !img.classList.contains('car-photo')) return;
+    if (img.hasAttribute('crossorigin')) { img.removeAttribute('crossorigin'); img.src = img.src; return; }
+    const id = img.dataset.car;
+    if (S.photos[id]) photoFailed[S.photos[id].url] = true;
+    img.outerHTML = carSVG(CAR_BY_ID[id]);
+    if (id === S.activeCar) renderCar();
+  }, true);
+
   // =====================================================================
   // Tap & effects
   // =====================================================================
@@ -781,9 +836,11 @@
     if (S.race) S.race.end = Math.max(now, S.race.end - 150);
     const rect = stage.getBoundingClientRect();
     spawnFloat(e.clientX - rect.left, e.clientY - rect.top, '+' + money(v));
-    carEl.classList.remove('bump');
-    void carEl.offsetWidth;
-    carEl.classList.add('bump');
+    for (const el of [carEl, $('stagePhoto')]) {
+      el.classList.remove('bump');
+      void el.offsetWidth;
+      el.classList.add('bump');
+    }
     speedKick = Math.min(speedKick + 120, 900);
     if (S.stats.taps > 15) tapHint.classList.add('hidden');
     buzz(4);
@@ -845,7 +902,12 @@
   // =====================================================================
   let wheels = [];
   function renderCar() {
-    carEl.innerHTML = carSVG(activeCar());
+    const car = activeCar();
+    const p = photoOf(car.id);
+    stage.classList.toggle('photo', !!p);
+    $('stagePhoto').innerHTML = p ? carVisual(car, 1200) + `<span class="credit">${photoCredit(p)}</span>` : '';
+    carEl.innerHTML = p ? '' : carSVG(car);
+    if (!p) ensurePhoto(car.id);
     wheels = [...carEl.querySelectorAll('.wheel')];
     $('carName').textContent = activeCar().name;
   }
@@ -946,13 +1008,13 @@
     return econKey() + S.gens.join(',') + buyMode + (buyMode === 'max' ? GENS.map((_, i) => maxAffordable(i)).join(',') : '');
   }
   function upgKey() { return econKey() + availableUpgrades().map(u => u.id).join(','); }
-  function garageKey() { return econKey() + kindParts().join(',') + S.cars.join(',') + her('eng') + her('cars') + (S.race ? 1 : 0) + S.champ.map(c => c.wins || 0).join(','); }
+  function garageKey() { return econKey() + photoVer + S.settings.photos + kindParts().join(',') + S.cars.join(',') + her('eng') + her('cars') + (S.race ? 1 : 0) + S.champ.map(c => c.wins || 0).join(','); }
   function racesKey() {
     const ch = S.champ[S.raceClass];
     return econKey() + S.raceClass + '|' + ch.round + '|' + ch.year + '|' + (S.race ? 'r' : '') + '|' + Math.round(pace()) + S.settings.autoRace + her('auto');
   }
   function legacyKey() { return [S.lp, S.lpSpent, lpGain(), S.ach.length, JSON.stringify(S.heritage), Math.floor(Math.log10(S.totalEarned + 1) * 4)].join('|'); }
-  function moreKey() { return Math.floor(S.stats.playTime / 5) + '|' + S.stats.taps + '|' + S.settings.haptics + S.teamName; }
+  function moreKey() { return photoVer + '|' + S.settings.photos + '|' + Math.floor(S.stats.playTime / 5) + '|' + S.stats.taps + '|' + S.settings.haptics + S.teamName; }
 
   function btn(act, arg, label, sub, cost, extraCls = '') {
     const costAttr = cost != null ? ` data-cost="${cost}"` : '';
@@ -1003,8 +1065,9 @@
     const cls = KIND_CLASS[car.kind];
     const lu = lineup();
     let html = `<div class="hero" style="--cc:${CLASSES[cls].color}">
-      <div class="hero-car">${carSVG(car)}</div>
+      <div class="hero-car">${carVisual(car, 800)}</div>
       <div class="hero-name">${esc(car.name)}</div>
+      ${S.settings.photos ? `<div class="photo-row"><span>${photoOf(car.id) ? photoCredit(photoOf(car.id)) : 'Drawing (photo loading or unavailable)'}</span><button class="mini" type="button" data-act="photo" data-arg="${car.id}">📷 Next photo</button></div>` : ''}
       <div class="hero-tags"><span class="tag" style="background:${CLASSES[cls].color}">${car.kind === 'gt3' ? 'GT3' : CLASSES[cls].name}</span><span>${PERK_TEXT[car.perk[0]](car.perk[1])}</span></div>
       <div class="pace-line">
         <div><small>Car</small><b>${car.pace}</b></div><i>×</i>
@@ -1064,7 +1127,7 @@
         else if (have) b = S.race ? lockedBtn('Equip', 'after race') : btn('equip', car2.id, 'Equip', '', null);
         else if (!licOk) b = lockedBtn('🔒', CLASSES[c].name + ' license');
         else b = btn('car', car2.id, 'Buy', money(price), price);
-        html += `<div class="row car-row${active ? ' active' : ''}"><div class="thumb">${carSVG(car2)}</div>
+        html += `<div class="row car-row${active ? ' active' : ''}"><div class="thumb">${carVisual(car2, 320)}</div>
           <div class="info"><div class="name">${esc(car2.name)}</div><div class="desc">Pace ${car2.pace} · ${PERK_TEXT[car2.perk[0]](car2.perk[1])}</div></div>${b}</div>`;
       }
     }
@@ -1166,6 +1229,7 @@
         <div class="kv"><span>This season earned</span><span>${money(S.seasonEarned)}</span></div>
         <div class="kv"><span>Time played</span><span>${fmtTime(st.playTime)}</span></div></div>
       <div class="card"><h3>Settings</h3>
+        <div class="toggle"><span>Real car photos</span><button class="switch ${S.settings.photos ? 'on' : ''}" type="button" data-act="photos" data-arg="0" aria-label="Toggle car photos"></button></div>
         <div class="toggle"><span>Vibration</span><button class="switch ${S.settings.haptics ? 'on' : ''}" type="button" data-act="haptics" data-arg="0" aria-label="Toggle vibration"></button></div>
         <button class="btn ghost" type="button" data-act="export" data-arg="0">Copy save code</button>
         <button class="btn ghost" type="button" data-act="import" data-arg="0">Import save code</button>
@@ -1177,7 +1241,15 @@
         <p>🎫 <b>Move up:</b> win 3 races in a class to unlock the next license: GTD → GTD PRO → LMP2 → GTP.</p>
         <p>⭐ <b>Legacy:</b> start a new season to cash in lifetime earnings for permanent bonuses and perks.</p>
         <p>💤 Your team keeps earning while you're away.</p></div>
+      ${photoCreditsHTML()}
       <p class="small-print">IMSA Clicker is an unofficial fan-made game. It is not affiliated with, endorsed by or sponsored by IMSA or any team, manufacturer, driver or circuit. Car and circuit names belong to their owners. Drivers and teams in the game are fictional.</p>`;
+  }
+
+  function photoCreditsHTML() {
+    const used = CARS.filter(c => photoOf(c.id));
+    if (!used.length) return '';
+    return `<div class="card"><h3>Photo credits</h3><p class="muted">Car photos from Wikimedia Commons, used under their licenses.</p>
+      ${used.map(c => { const p = photoOf(c.id); return `<div class="kv"><span>${esc(c.name)}</span><span><a href="${esc(p.page)}" target="_blank" rel="noopener">${esc(p.artist || 'Author')}</a> · ${esc(p.license || 'see page')}</span></div>`; }).join('')}</div>`;
   }
 
   function renderPanel(name, force) {
@@ -1221,6 +1293,8 @@
       case 'her': buyHeritage(arg); break;
       case 'season': newSeason(); break;
       case 'haptics': S.settings.haptics = !S.settings.haptics; buzz(15); break;
+      case 'photos': S.settings.photos = !S.settings.photos; renderCar(); break;
+      case 'photo': nextPhoto(arg); break;
       case 'export': exportSave(); break;
       case 'import': importSave(); break;
       case 'rename': renameTeam(); break;

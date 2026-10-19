@@ -589,6 +589,24 @@ button {
 .tab { font-size: 10px; }
 .tab span { font-size: 18px; }
 
+/* ---------- real photos ---------- */
+.stage-photo { position: absolute; inset: 0; display: none; pointer-events: none; }
+.stage.photo .stage-photo { display: block; }
+.stage.photo .sky, .stage.photo .stands, .stage.photo .fence, .stage.photo .road, .stage.photo .car { display: none; }
+.stage-photo img { width: 100%; height: 100%; object-fit: cover; object-position: center 60%; display: block; }
+.stage-photo::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(0,0,0,.45) 0%, rgba(0,0,0,0) 30%, rgba(0,0,0,0) 65%, rgba(0,0,0,.6) 100%); }
+.stage-photo.bump img { animation: zoomPulse .14s ease-out; }
+@keyframes zoomPulse { 40% { transform: scale(1.025); } }
+.stage-photo .credit { position: absolute; right: 8px; bottom: 6px; z-index: 1; font-size: 9px; color: rgba(255,255,255,.7); max-width: 60%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.stage.photo .car-name { left: 12px; transform: none; bottom: 6px; color: #fff; font-size: 11px; text-shadow: 0 1px 3px #000; z-index: 1; }
+.car-photo { width: 100%; height: auto; aspect-ratio: 3 / 2; object-fit: cover; display: block; border-radius: 10px; background: #0f1218; }
+.hero-car .car-photo { aspect-ratio: 16 / 9; border-radius: 12px; }
+.thumb .car-photo { border-radius: 8px; }
+.modal-car .car-photo { border-radius: 12px; }
+.photo-row { display: flex; justify-content: center; align-items: center; gap: 8px; margin-top: 4px; font-size: 10.5px; color: var(--muted); flex-wrap: wrap; }
+.mini { background: var(--card-hi); border: 1px solid var(--line); border-radius: 8px; padding: 4px 9px; font-size: 11px; font-weight: 800; color: var(--text); }
+.kv a { color: var(--accent); }
+
 @media (min-height: 760px) {
   .stage { height: 36dvh; }
 }
