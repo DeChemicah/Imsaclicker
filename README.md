@@ -16,15 +16,24 @@ It's an installable PWA: use **Add to Home Screen** for a full-screen app that a
 ## Gameplay
 
 - **Tap the car** to earn prize money. Upgrades raise the tap value, and later ones add a share of your $/sec to every tap.
-- **Team**: hire 12 kinds of team members, from Mechanics to an Endurance Dynasty. Each produces income every second. Owning 25, 50, 100, 150, 200… of one kind doubles its output.
-- **Upgrades**: multipliers for each team member, tap power, global income, PUSH and race prizes.
-- **Car class**: move up GTD → GTD PRO → LMP2 → GTP. Each step multiplies all income, and the car changes look.
-- **PUSH**: a short income boost (x2 for 30s at first) with a cooldown.
-- **Sponsor bonuses**: they pop up on track now and then. Tap one for a burst of cash.
-- **Races**: an 11-round calendar from Daytona to Petit Le Mans. Your $/sec sets your expected finish, and tapping during a race speeds it up. A podium unlocks the next round. A win adds +10% income for the season.
-- **Seasons (prestige)**: reset to earn Championship Points from lifetime earnings. Each point gives a permanent +5% income.
-- **Offline earnings**: 50% rate, up to 8 hours.
-- Progress auto-saves to `localStorage`. You can export and import save codes from the **More** tab.
+- **Team**: hire 12 kinds of team members for income every second. Owning 25, 50, 100, 200 or 400 of one kind doubles its output.
+- **Upgrades**: multipliers for team members, taps, all income, PUSH and race prizes.
+- **Garage**
+  - **21 IMSA-style cars**, each with its own silhouette and livery. **GT3** cars (Lexus RC F, NSX, AMG, Vantage, Mustang, Huracán, 720S, M4, 296, Corvette Z06, 911 GT3 R) race in GTD and GTD PRO. **LMP2** has the Riley, Ligier, Dallara and ORECA. **GTP** has the ARX-06, V-Series.R, M Hybrid V8, SC63, Valkyrie and 963.
+  - Each car has its own **pace** and a **perk**. Every car you own adds +5% income. You can buy and swap cars within a class at any time.
+  - **Car development**: tires, brakes, suspension, gearbox, aero and engine. Each level adds +4% pace. GT3, LMP2 and GTP each have their own development.
+  - **Drivers**: sign Bronze, Silver, Gold and Platinum drivers. Your best three form the lineup and add pace and perks.
+- **Races**
+  - Each class has an 11-round championship from Daytona to Petit Le Mans, against 7 rival teams scoring IMSA-style points.
+  - Your pace against the field's pace decides where you finish. Tapping during a race speeds it up.
+  - **Pit stop mini-game** mid-race: tap while the needle is in the green to gain places.
+  - Win the title for Legacy Points. Rivals get faster each time you win a title in that class.
+- **Licenses**: win 3 races in a class to buy the next license: GTD → GTD PRO (x2 income) → LMP2 (x6) → GTP (x30).
+- **Legacy (prestige)**: start a new season to turn lifetime earnings into Legacy Points. Each point gives +3% income forever.
+  - Spend points on 11 Legacy perks: auto-racing, auto pit stops, shorter races, starting licenses, starting money, discounts, longer offline earnings and more.
+- **36 achievements**, each worth +2% income forever.
+- **PUSH** boost, **sponsor bonus** pickups, and **offline earnings** (50% rate up to 8h, upgradeable).
+- Progress auto-saves to `localStorage`. Saves from the first version migrate automatically. Export and import save codes from the **More** tab.
 
 ## Files
 
@@ -38,4 +47,4 @@ It's an installable PWA: use **Add to Home Screen** for a full-screen app that a
 
 ---
 
-Unofficial fan-made game. Not affiliated with, endorsed by or sponsored by IMSA or any team, manufacturer or circuit.
+Unofficial fan-made game. Not affiliated with, endorsed by or sponsored by IMSA or any team, manufacturer, driver or circuit. Car and circuit names belong to their owners. All drivers and teams in the game are fictional.

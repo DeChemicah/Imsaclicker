@@ -1,55 +1,181 @@
 'use strict';
 
 (() => {
-  // ================= Config =================
-  const SAVE_KEY = 'imsaclicker.save.v1';
-  const OFFLINE_CAP_S = 8 * 3600;
-  const OFFLINE_RATE = 0.5;
-  const COST_GROWTH = 1.15;
-  const MILESTONES = [25, 50, 100, 150, 200, 300, 400, 500];
-  const CP_DIVISOR = 1e6;      // CP = floor(sqrt(lifetime earned / divisor))
-  const CP_BONUS = 0.05;       // +5% income per Championship Point
-  const TROPHY_BONUS = 0.10;   // +10% income per race win this season
+  // =====================================================================
+  // Config
+  // =====================================================================
+  const SAVE_KEY = 'imsaclicker.save.v2';
+  const OLD_SAVE_KEY = 'imsaclicker.save.v1';
+  const COST_GROWTH = 1.15;                 // team member price growth
+  const MILESTONES = [25, 50, 100, 200, 400];
+  const LP_DIVISOR = 1e8;                   // Legacy = floor(cbrt(lifetime earned / divisor))
+  const LP_BONUS = 0.03;                    // +3% income per Legacy Point
+  const WIN_BONUS = 0.02;                   // +2% income per race win this season (first 50)
+  const WIN_BONUS_CAP = 50;
+  const CAR_BONUS = 0.05;                   // +5% income per car in the garage
+  const ACH_BONUS = 0.02;                   // +2% income per achievement
   const PUSH_COOLDOWN_MS = 120000;
+  const PART_GROWTH = 5;                    // car part price growth per level
+  const PART_STEP = 0.04;                   // +4% pace per part level
+  const FIELD = 20;
+  const POINTS = [350, 320, 300, 280, 260, 250, 240, 230, 220, 210, 200, 190, 180, 170, 160, 150, 140, 130, 120, 110];
+  const TITLE_LP = [2, 4, 8, 16];
 
+  // =====================================================================
+  // Team members (idle income)
+  // =====================================================================
   const GENS = [
-    { name: 'Mechanic',            icon: '🔧', desc: 'Turns wrenches through the night.',            base: 15,     ips: 0.1 },
-    { name: 'Tire Specialist',     icon: '🛞', desc: 'Reads rubber like a book.',                    base: 100,    ips: 1 },
-    { name: 'Pit Crew',            icon: '⛽', desc: 'Fuel, four tires and a driver change.',        base: 1100,   ips: 8 },
-    { name: 'Race Engineer',       icon: '🎧', desc: 'Calls the strategy on the radio.',             base: 12000,  ips: 47 },
-    { name: 'Data Analyst',        icon: '📊', desc: 'Finds tenths hidden in the telemetry.',        base: 1.3e5,  ips: 260 },
-    { name: 'Simulator Rig',       icon: '🕹️', desc: 'Thousands of laps before the green flag.',     base: 1.4e6,  ips: 1400 },
-    { name: 'Wind Tunnel',         icon: '🌬️', desc: 'Downforce for days.',                          base: 2e7,    ips: 7800 },
-    { name: 'Title Sponsor',       icon: '💼', desc: 'Their logo on your livery.',                   base: 3.3e8,  ips: 44000 },
-    { name: 'Hospitality Village', icon: '🎪', desc: 'VIP paddock guests fund the program.',         base: 5.1e9,  ips: 2.6e5 },
-    { name: 'Factory Program',     icon: '🏭', desc: 'Full manufacturer backing.',                   base: 7.5e10, ips: 1.6e6 },
-    { name: 'Hybrid R&D Center',   icon: '🔋', desc: 'Masters of the spec hybrid system.',           base: 1e12,   ips: 1e7 },
-    { name: 'Endurance Dynasty',   icon: '👑', desc: 'Legends of the long race.',                    base: 1.4e13, ips: 6.5e7 },
+    { name: 'Mechanic',            icon: '🔧', desc: 'Turns wrenches through the night.',          base: 15,     ips: 0.1 },
+    { name: 'Tire Specialist',     icon: '🛞', desc: 'Reads rubber like a book.',                  base: 100,    ips: 1 },
+    { name: 'Pit Crew',            icon: '⛽', desc: 'Fuel, four tires and a driver change.',      base: 1100,   ips: 8 },
+    { name: 'Race Engineer',       icon: '🎧', desc: 'Calls the strategy on the radio.',           base: 12000,  ips: 47 },
+    { name: 'Data Analyst',        icon: '📊', desc: 'Finds tenths hidden in the telemetry.',      base: 1.3e5,  ips: 260 },
+    { name: 'Simulator Rig',       icon: '🕹️', desc: 'Thousands of laps before the green flag.',   base: 1.4e6,  ips: 1400 },
+    { name: 'Wind Tunnel',         icon: '🌬️', desc: 'Downforce for days.',                        base: 2e7,    ips: 7800 },
+    { name: 'Title Sponsor',       icon: '💼', desc: 'Their logo on your livery.',                 base: 3.3e8,  ips: 44000 },
+    { name: 'Hospitality Village', icon: '🎪', desc: 'VIP paddock guests fund the program.',       base: 5.1e9,  ips: 2.6e5 },
+    { name: 'Factory Program',     icon: '🏭', desc: 'Full manufacturer backing.',                 base: 7.5e10, ips: 1.6e6 },
+    { name: 'Hybrid R&D Center',   icon: '🔋', desc: 'Masters of the spec hybrid system.',         base: 1e12,   ips: 1e7 },
+    { name: 'Endurance Dynasty',   icon: '👑', desc: 'Legends of the long race.',                  base: 1.4e13, ips: 6.5e7 },
   ];
 
+  // =====================================================================
+  // Classes, cars, parts, drivers
+  // =====================================================================
   const CLASSES = [
-    { name: 'GTD',     color: '#1fa84f', trim: '#0d5c2a', accent: '#ffffff', mult: 1,  cost: 0,    shape: 'gt',    num: 23, desc: 'Customer GT3 machinery. Every dynasty starts somewhere.' },
-    { name: 'GTD PRO', color: '#d7262e', trim: '#7d1015', accent: '#ffffff', mult: 2,  cost: 5e4,  shape: 'gt',    num: 3,  desc: 'Factory GT3 with pro drivers. x2 all income.' },
-    { name: 'LMP2',    color: '#1f5fd1', trim: '#0e2f72', accent: '#ffffff', mult: 6,  cost: 5e7,  shape: 'proto', num: 52, desc: 'Spec prototype, pure downforce. x3 more income.' },
-    { name: 'GTP',     color: '#16181d', trim: '#f2c230', accent: '#f2c230', mult: 30, cost: 5e10, shape: 'proto', num: 7,  desc: 'Hybrid top class, fighting for the overall win. x5 more income.' },
+    { name: 'GTD',     color: '#1fa84f', mult: 1,  req: 100,  prize: 100,   kind: 'gt3',  license: null,
+      desc: 'GT3 cars with pro-am lineups. Every dynasty starts here.' },
+    { name: 'GTD PRO', color: '#d7262e', mult: 2,  req: 165,  prize: 2e3,   kind: 'gt3',  license: { cost: 1e6, wins: 3 },
+      desc: 'The same GT3 cars with all-pro lineups. x2 all income.' },
+    { name: 'LMP2',    color: '#1f5fd1', mult: 6,  req: 360,  prize: 5e5,   kind: 'lmp2', license: { cost: 5e9, wins: 3 },
+      desc: 'Spec prototypes with serious downforce. x3 more income.' },
+    { name: 'GTP',     color: '#c9a227', mult: 30, req: 800,  prize: 2e8,   kind: 'gtp',  license: { cost: 5e12, wins: 3 },
+      desc: 'Hybrid top-class prototypes fighting for overall wins. x5 more income.' },
   ];
+  const KIND_LABEL = { gt3: 'GT3 · races GTD & GTD PRO', lmp2: 'LMP2 prototypes', gtp: 'GTP hybrid prototypes' };
+  const KIND_CLASS = { gt3: 0, lmp2: 2, gtp: 3 };
+
+  // Silhouette presets (side view, facing right, viewBox 240x80)
+  const GT_FRONT = { shape: 'gt', rw: 54, fw: 186, deckY: 36, rearBase: 44, r1: 86, r2: 122, roofY: 21, wsBase: 156, beltY: 40, noseY: 45 };
+  const GT_MID   = { shape: 'gt', rw: 54, fw: 186, deckY: 33, rearBase: 26, r1: 102, r2: 134, roofY: 22, wsBase: 166, beltY: 42, noseY: 47 };
+  const GT_911   = { shape: 'gt', rw: 58, fw: 184, deckY: 40, rearBase: 16, r1: 100, r2: 124, roofY: 20, wsBase: 156, beltY: 41, noseY: 47 };
+  const P_LMP2   = { shape: 'proto', rw: 50, fw: 190, rearTop: 37, midY: 47, frontTop: 42, noseY: 54, cx1: 104, cx2: 156, ctop: 24, wingY: 18 };
+  const P_GTP    = { shape: 'proto', rw: 50, fw: 192, rearTop: 41, midY: 49, frontTop: 40, noseY: 53, cx1: 100, cx2: 160, ctop: 22, wingY: 20 };
+
+  const PERK_TEXT = {
+    partsDisc: (v) => `Car parts ${Math.round(v * 100)}% cheaper`,
+    tap: (v) => `+${Math.round(v * 100)}% tap value`,
+    offline: (v) => `+${Math.round(v * 100)}% offline earnings`,
+    bonusVal: (v) => `Sponsor bonuses worth +${Math.round(v * 100)}%`,
+    income: (v) => `+${Math.round(v * 100)}% all income`,
+    pushDur: (v) => `PUSH lasts +${v}s`,
+    prize: (v) => `+${Math.round(v * 100)}% race prize money`,
+    pit: (v) => `Pit stop window +${Math.round(v * 100)}%`,
+    pace: (v) => `+${Math.round(v * 100)}% race pace`,
+    raceSpeed: (v) => `Races ${Math.round(v * 100)}% shorter`,
+    bonusFreq: (v) => `Sponsor bonuses ${Math.round(v * 100)}% more often`,
+  };
+
+  const CARS = [
+    // ---- GT3 ----
+    { id: 'lexus',    kind: 'gt3', name: 'Lexus RC F GT3',            price: 0,      pace: 100, perk: ['partsDisc', 0.10], num: 14,  ...GT_FRONT, roofY: 22,
+      liv: { base: '#f3f3f3', p: 'band', c2: '#d61f26', c3: '#151515' } },
+    { id: 'nsx',      kind: 'gt3', name: 'Acura NSX GT3 Evo22',       price: 1e3,    pace: 103, perk: ['tap', 0.25],       num: 93,  ...GT_MID,
+      liv: { base: '#e6e7ec', p: 'nose', c2: '#c8102e', c3: '#151515' } },
+    { id: 'amg',      kind: 'gt3', name: 'Mercedes-AMG GT3 Evo',      price: 1e4,    pace: 106, perk: ['offline', 0.25],   num: 57,  ...GT_FRONT, r2: 124, wsBase: 160,
+      liv: { base: '#bfc4cb', p: 'lower', c2: '#141414', c3: '#00a19b' } },
+    { id: 'aston',    kind: 'gt3', name: 'Aston Martin Vantage GT3',  price: 5e4,    pace: 108, perk: ['bonusVal', 1],     num: 27,  ...GT_FRONT, roofY: 23, deckY: 35,
+      liv: { base: '#0b4d33', p: 'band', c2: '#c6f432', c3: '#ffffff' } },
+    { id: 'mustang',  kind: 'gt3', name: 'Ford Mustang GT3',          price: 2e5,  pace: 111, perk: ['income', 0.15],    num: 64,  ...GT_FRONT, r1: 80, r2: 118, wsBase: 152, noseY: 44,
+      liv: { base: '#16245e', p: 'stripes2', c2: '#ffffff', c3: '#ffffff' } },
+    { id: 'huracan',  kind: 'gt3', name: 'Lamborghini Huracán GT3 Evo2', price: 1e6, pace: 114, perk: ['pushDur', 10],     num: 63,  ...GT_MID, roofY: 23, r1: 104,
+      liv: { base: '#86cf00', p: 'lower', c2: '#141414', c3: '#ffffff' } },
+    { id: 'mclaren',  kind: 'gt3', name: 'McLaren 720S GT3 Evo',      price: 4e6,    pace: 117, perk: ['prize', 0.30],     num: 70,  ...GT_MID, r2: 138, roofY: 21,
+      liv: { base: '#ff7f00', p: 'nose', c2: '#1b1b1b', c3: '#3fd3ff' } },
+    { id: 'bmwm4',    kind: 'gt3', name: 'BMW M4 GT3',                price: 1.5e7,    pace: 120, perk: ['income', 0.20],    num: 1,   ...GT_FRONT, roofY: 21, noseY: 44,
+      liv: { base: '#f5f5f5', p: 'mstripes', c2: '#1c69d4', c3: '#2b2a6e', c4: '#e22718' } },
+    { id: 'ferrari',  kind: 'gt3', name: 'Ferrari 296 GT3',           price: 6e7,    pace: 124, perk: ['pit', 0.40],       num: 62,  ...GT_MID,
+      liv: { base: '#d40000', p: 'band', c2: '#ffe100', c3: '#ffffff' } },
+    { id: 'corvette', kind: 'gt3', name: 'Corvette Z06 GT3.R',        price: 2.5e8,  pace: 128, perk: ['tap', 0.50],       num: 3,   ...GT_MID, r1: 98, roofY: 21, deckY: 34,
+      liv: { base: '#f7c600', p: 'lower', c2: '#1a1a1a', c3: '#ffffff' } },
+    { id: 'p911',     kind: 'gt3', name: 'Porsche 911 GT3 R',         price: 1e9,    pace: 132, perk: ['pace', 0.05],      num: 9,   ...GT_911,
+      liv: { base: '#ffffff', p: 'tail', c2: '#d5001c', c3: '#151515' } },
+    // ---- LMP2 ----
+    { id: 'riley',    kind: 'lmp2', name: 'Riley Mk. 30',             price: 1e10,    pace: 300, perk: ['bonusFreq', 0.5],  num: 52,  ...P_LMP2,
+      liv: { base: '#5b2c83', p: 'band', c2: '#f0c419', c3: '#ffffff' } },
+    { id: 'ligier',   kind: 'lmp2', name: 'Ligier JS P217',           price: 5e10,    pace: 308, perk: ['income', 0.20],    num: 18,  ...P_LMP2, ctop: 25,
+      liv: { base: '#ff6a13', p: 'nose', c2: '#151515', c3: '#ffffff' } },
+    { id: 'dallara',  kind: 'lmp2', name: 'Dallara P217',             price: 2.5e11,    pace: 316, perk: ['raceSpeed', 0.15], num: 81,  ...P_LMP2, rearTop: 36,
+      liv: { base: '#ffd100', p: 'lower', c2: '#1d1d1d', c3: '#e4002b' } },
+    { id: 'oreca',    kind: 'lmp2', name: 'ORECA 07',                 price: 1e12,   pace: 326, perk: ['pace', 0.05],      num: 11,  ...P_LMP2, ctop: 23, frontTop: 41,
+      liv: { base: '#0057b8', p: 'band', c2: '#ffffff', c3: '#e4002b' } },
+    // ---- GTP ----
+    { id: 'arx06',    kind: 'gtp', name: 'Acura ARX-06',              price: 1e13,   pace: 640, perk: ['tap', 1],          num: 10,  ...P_GTP, light: 'arrow',
+      liv: { base: '#141414', p: 'nose', c2: '#e4002b', c3: '#ffffff' } },
+    { id: 'vseries',  kind: 'gtp', name: 'Cadillac V-Series.R',       price: 5e13,   pace: 655, perk: ['income', 0.25],    num: 31,  ...P_GTP, ctop: 21, light: 'blade',
+      liv: { base: '#14213d', p: 'band', c2: '#ffffff', c3: '#d4af37' } },
+    { id: 'bmwgtp',   kind: 'gtp', name: 'BMW M Hybrid V8',           price: 2.5e14, pace: 670, perk: ['prize', 0.50],     num: 24,  ...P_GTP, light: 'bar',
+      liv: { base: '#f2f2f2', p: 'mstripes', c2: '#1c69d4', c3: '#2b2a6e', c4: '#e22718' } },
+    { id: 'sc63',     kind: 'gtp', name: 'Lamborghini SC63',          price: 1e15,   pace: 685, perk: ['pushDur', 20],     num: 63,  ...P_GTP, frontTop: 39, light: 'y',
+      liv: { base: '#3d7a1f', p: 'lower', c2: '#141414', c3: '#c6f432' } },
+    { id: 'valkyrie', kind: 'gtp', name: 'Aston Martin Valkyrie',     price: 5e15,   pace: 700, perk: ['raceSpeed', 0.20], num: 23,  ...P_GTP, ctop: 20, cx1: 104, light: 'dot',
+      liv: { base: '#00543c', p: 'band', c2: '#cedc00', c3: '#ffffff' } },
+    { id: 'p963',     kind: 'gtp', name: 'Porsche 963',               price: 2.5e16, pace: 720, perk: ['pace', 0.08],      num: 7,   ...P_GTP, light: 'bar',
+      liv: { base: '#ffffff', p: 'tail', c2: '#d5001c', c3: '#151515' } },
+  ];
+  const CAR_BY_ID = Object.fromEntries(CARS.map(c => [c.id, c]));
+
+  const PARTS = [
+    { id: 'tires',  name: 'Tires',        icon: '🛞', desc: 'Softer compounds, better warm-up.', base: 100 },
+    { id: 'brakes', name: 'Brakes',       icon: '🛑', desc: 'Carbon discs, later braking.',      base: 150 },
+    { id: 'susp',   name: 'Suspension',   icon: '🪛', desc: 'Dampers that love the curbs.',      base: 250 },
+    { id: 'gear',   name: 'Gearbox',      icon: '⚙️', desc: 'Faster, smoother shifts.',          base: 400 },
+    { id: 'aero',   name: 'Aerodynamics', icon: '🌬️', desc: 'More grip, less drag.',             base: 600 },
+    { id: 'engine', name: 'Engine',       icon: '🔥', desc: 'More power out of every corner.',   base: 1000 },
+  ];
+  const PART_MAX = 60;
+  const PART_KIND_COST = { gt3: 1, lmp2: 1e6, gtp: 1e9 };
+
+  const TIERS = [
+    { name: 'Bronze',   color: '#c98a52', pace: 0.02 },
+    { name: 'Silver',   color: '#c7ced8', pace: 0.04 },
+    { name: 'Gold',     color: '#f2c230', pace: 0.07 },
+    { name: 'Platinum', color: '#9fe3ff', pace: 0.10 },
+  ];
+  const DRIVERS = [
+    { name: 'Gary Holt',       tier: 0, cost: 2e3,  perk: ['tap', 0.10] },
+    { name: 'Linda Marsh',     tier: 0, cost: 1e4,  perk: ['prize', 0.10] },
+    { name: 'Kenji Arata',     tier: 1, cost: 1e5,  perk: ['income', 0.05] },
+    { name: 'Sofia Lindqvist', tier: 1, cost: 5e5,  perk: ['pit', 0.15] },
+    { name: 'Tomás Ribeiro',   tier: 1, cost: 2e6,  perk: ['tap', 0.20] },
+    { name: 'Callum Price',    tier: 2, cost: 4e7,  perk: ['income', 0.10] },
+    { name: 'Ava Brennan',     tier: 2, cost: 3e8,  perk: ['prize', 0.25] },
+    { name: 'Marco Vellani',   tier: 2, cost: 2e9,  perk: ['pit', 0.25] },
+    { name: 'Nina Kovač',      tier: 3, cost: 4e10, perk: ['income', 0.15] },
+    { name: 'Dario Santoro',   tier: 3, cost: 5e11, perk: ['tap', 0.50] },
+    { name: 'Ethan Wolfe',     tier: 3, cost: 5e12, perk: ['prize', 0.50] },
+    { name: 'Mia Duval',       tier: 3, cost: 5e13, perk: ['income', 0.25] },
+  ];
+  const LINEUP_SIZE = 3;
 
   const TRACKS = [
-    { name: 'Daytona 24',              place: 'Daytona Beach, FL',  hours: 24,  req: 3 },
-    { name: 'Sebring 12 Hours',        place: 'Sebring, FL',        hours: 12,  req: 60 },
-    { name: 'Long Beach Street Race',  place: 'Long Beach, CA',     hours: 1.7, req: 1200 },
-    { name: 'Laguna Seca',             place: 'Monterey, CA',       hours: 2.7, req: 2.5e4 },
-    { name: 'Detroit Street Race',     place: 'Detroit, MI',        hours: 1.7, req: 4e5 },
-    { name: 'Watkins Glen 6 Hours',    place: 'Watkins Glen, NY',   hours: 6,   req: 8e6 },
-    { name: 'Mosport',                 place: 'Bowmanville, ON',    hours: 2.7, req: 1.5e8 },
-    { name: 'Road America',            place: 'Elkhart Lake, WI',   hours: 2.7, req: 3e9 },
-    { name: 'VIR',                     place: 'Alton, VA',          hours: 2.7, req: 6e10 },
-    { name: 'Indianapolis',            place: 'Indianapolis, IN',   hours: 6,   req: 1.2e12 },
-    { name: 'Petit Le Mans',           place: 'Braselton, GA',      hours: 10,  req: 2.5e13 },
+    { name: 'Daytona 24',             place: 'Daytona Beach, FL', hours: 24 },
+    { name: 'Sebring 12 Hours',       place: 'Sebring, FL',       hours: 12 },
+    { name: 'Long Beach Street Race', place: 'Long Beach, CA',    hours: 1.7 },
+    { name: 'Laguna Seca',            place: 'Monterey, CA',      hours: 2.7 },
+    { name: 'Detroit Street Race',    place: 'Detroit, MI',       hours: 1.7 },
+    { name: 'Watkins Glen 6 Hours',   place: 'Watkins Glen, NY',  hours: 6 },
+    { name: 'Mosport',                place: 'Bowmanville, ON',   hours: 2.7 },
+    { name: 'Road America',           place: 'Elkhart Lake, WI',  hours: 2.7 },
+    { name: 'VIR',                    place: 'Alton, VA',         hours: 2.7 },
+    { name: 'Indianapolis',           place: 'Indianapolis, IN',  hours: 6 },
+    { name: 'Petit Le Mans',          place: 'Braselton, GA',     hours: 10 },
   ];
-  const FIELD = 20;
+  const RIVALS = ['Apex Motorsport', 'Blue Ridge Racing', 'Sunset Performance', 'Northstar Autosport', 'Ironclad Racing', 'Velocity Works', 'Harbor Point Racing'];
 
-  // Upgrades: generated per team member + hand-made ones.
+  // =====================================================================
+  // Upgrades (one-time purchases)
+  // =====================================================================
   const TIER_REQ = [1, 10, 25, 50, 100, 150, 200];
   const TIER_COST = [10, 100, 1e3, 1e5, 1e7, 1e9, 1e11];
   const TIER_NAMES = ['Fresh Gear', 'Pro Training', 'Carbon Fiber', 'Factory Support', 'Championship DNA', 'Hall of Fame', 'Living Legends'];
@@ -63,46 +189,115 @@
       });
     });
   });
-  const seen = (c) => () => S.seasonEarned >= c * 0.3;
   UPGRADES.push(
-    { id: 'tap1', icon: '🧤', name: 'Racing Gloves',        desc: 'Tap value x2.',                       cost: 100,   type: 'tap',      val: 2 },
-    { id: 'tap2', icon: '🎮', name: 'Paddle Shifters',      desc: 'Tap value x2.',                       cost: 1e4,   type: 'tap',      val: 2 },
-    { id: 'tap3', icon: '💺', name: 'Carbon Seat Fitting',  desc: 'Tap value x2.',                       cost: 1e6,   type: 'tap',      val: 2 },
-    { id: 'tap4', icon: '🧑‍🏫', name: 'Driver Coaching',      desc: 'Taps also earn 1% of your $/sec.',   cost: 5e4,   type: 'tapPct',   val: 0.01 },
-    { id: 'tap5', icon: '📡', name: 'Telemetry Overlay',    desc: 'Taps earn another 2% of $/sec.',      cost: 5e6,   type: 'tapPct',   val: 0.02 },
-    { id: 'tap6', icon: '🏎️', name: 'Pro Driver Lineup',    desc: 'Taps earn another 3% of $/sec.',      cost: 5e9,   type: 'tapPct',   val: 0.03 },
-    { id: 'tap7', icon: '🥇', name: 'Endurance Ace',        desc: 'Taps earn another 4% of $/sec.',      cost: 5e12,  type: 'tapPct',   val: 0.04 },
-    { id: 'glb1', icon: '💡', name: 'Night Stint Lights',   desc: 'All income x1.25.',                   cost: 1e5,   type: 'global',   val: 1.25 },
-    { id: 'glb2', icon: '🌧️', name: 'Weather Radar',        desc: 'All income x1.5.',                    cost: 1e7,   type: 'global',   val: 1.5 },
-    { id: 'glb3', icon: '🧠', name: 'Strategy Software',    desc: 'All income x1.5.',                    cost: 1e9,   type: 'global',   val: 1.5 },
-    { id: 'glb4', icon: '⏱️', name: 'Endurance Mindset',    desc: 'All income x2.',                      cost: 1e11,  type: 'global',   val: 2 },
-    { id: 'glb5', icon: '🌍', name: 'Global Fanbase',       desc: 'All income x2.',                      cost: 1e13,  type: 'global',   val: 2 },
-    { id: 'psh1', icon: '📻', name: 'Pit Wall Radio',       desc: 'PUSH lasts 45s instead of 30s.',      cost: 2e5,   type: 'pushDur',  val: 45 },
-    { id: 'psh2', icon: '🗺️', name: 'Fuel Mapping',         desc: 'PUSH boost becomes x3.',              cost: 2e8,   type: 'pushMult', val: 3 },
-    { id: 'psh3', icon: '🔥', name: 'Qualifying Mode',      desc: 'PUSH boost becomes x5.',              cost: 2e11,  type: 'pushMult', val: 5 },
-    { id: 'rac1', icon: '🏆', name: 'Podium Bonus Clause',  desc: 'Race prize money x3.',                cost: 5e5,   type: 'prize',    val: 3 },
-    { id: 'rac2', icon: '📜', name: 'Manufacturer Bonus',   desc: 'Race prize money x3.',                cost: 5e9,   type: 'prize',    val: 3 },
+    { id: 'tap1', icon: '🧤', name: 'Racing Gloves',       desc: 'Tap value x2.',                     cost: 100,  type: 'tap',      val: 2 },
+    { id: 'tap2', icon: '🎮', name: 'Paddle Shifters',     desc: 'Tap value x2.',                     cost: 1e4,  type: 'tap',      val: 2 },
+    { id: 'tap3', icon: '💺', name: 'Carbon Seat Fitting', desc: 'Tap value x2.',                     cost: 1e6,  type: 'tap',      val: 2 },
+    { id: 'tap4', icon: '🧑‍🏫', name: 'Driver Coaching',     desc: 'Taps also earn 1% of your $/sec.', cost: 5e4,  type: 'tapPct',   val: 0.01 },
+    { id: 'tap5', icon: '📡', name: 'Telemetry Overlay',   desc: 'Taps earn another 2% of $/sec.',    cost: 5e6,  type: 'tapPct',   val: 0.02 },
+    { id: 'tap6', icon: '🏎️', name: 'Pro Driver Lineup',   desc: 'Taps earn another 3% of $/sec.',    cost: 5e9,  type: 'tapPct',   val: 0.03 },
+    { id: 'tap7', icon: '🥇', name: 'Endurance Ace',       desc: 'Taps earn another 4% of $/sec.',    cost: 5e12, type: 'tapPct',   val: 0.04 },
+    { id: 'glb1', icon: '💡', name: 'Night Stint Lights',  desc: 'All income x1.25.',                 cost: 1e5,  type: 'global',   val: 1.25 },
+    { id: 'glb2', icon: '🌧️', name: 'Weather Radar',       desc: 'All income x1.5.',                  cost: 1e7,  type: 'global',   val: 1.5 },
+    { id: 'glb3', icon: '🧠', name: 'Strategy Software',   desc: 'All income x1.5.',                  cost: 1e9,  type: 'global',   val: 1.5 },
+    { id: 'glb4', icon: '⏱️', name: 'Endurance Mindset',   desc: 'All income x2.',                    cost: 1e11, type: 'global',   val: 2 },
+    { id: 'glb5', icon: '🌍', name: 'Global Fanbase',      desc: 'All income x2.',                    cost: 1e13, type: 'global',   val: 2 },
+    { id: 'psh1', icon: '📻', name: 'Pit Wall Radio',      desc: 'PUSH lasts 45s instead of 30s.',    cost: 2e5,  type: 'pushDur',  val: 45 },
+    { id: 'psh2', icon: '🗺️', name: 'Fuel Mapping',        desc: 'PUSH boost becomes x3.',            cost: 2e8,  type: 'pushMult', val: 3 },
+    { id: 'psh3', icon: '🔥', name: 'Qualifying Mode',     desc: 'PUSH boost becomes x5.',            cost: 2e11, type: 'pushMult', val: 5 },
+    { id: 'rac1', icon: '🏆', name: 'Podium Bonus Clause', desc: 'Race prize money x3.',              cost: 5e5,  type: 'prize',    val: 3 },
+    { id: 'rac2', icon: '📜', name: 'Manufacturer Bonus',  desc: 'Race prize money x3.',              cost: 5e9,  type: 'prize',    val: 3 },
   );
-  UPGRADES.forEach(u => { if (!u.req) u.req = seen(u.cost); });
+  UPGRADES.forEach(u => { if (!u.req) u.req = () => S.seasonEarned >= u.cost * 0.3; });
   const UPG_BY_ID = Object.fromEntries(UPGRADES.map(u => [u.id, u]));
 
-  // ================= State =================
+  // =====================================================================
+  // Legacy perks (bought with Legacy Points, kept forever)
+  // =====================================================================
+  const HERITAGE = [
+    { id: 'seed',    icon: '💵', name: 'Seed Money',            costs: [3, 10, 30, 100],  desc: (l) => `Start each season with ${money([0, 1e4, 1e6, 1e8, 1e10][l] || 0)}.`, next: (l) => `Start with ${money([1e4, 1e6, 1e8, 1e10][l])}` },
+    { id: 'tapper',  icon: '👆', name: "Racer's Instinct",      costs: [2, 8, 25],        desc: (l) => `Tap value x${Math.pow(3, l)}.`, next: (l) => `Tap value x${Math.pow(3, l + 1)}` },
+    { id: 'autoPit', icon: '🧰', name: 'Crew Chief',            costs: [6],               desc: () => 'Pit stops you miss are handled as Good stops.', next: () => 'Missed pit stops count as Good' },
+    { id: 'auto',    icon: '🤖', name: 'Team Manager',          costs: [10],              desc: () => 'Automatically enters the next round (toggle in Races).', next: () => 'Auto-enter the next race' },
+    { id: 'speed',   icon: '🚚', name: 'Efficient Logistics',   costs: [8, 25],           desc: (l) => `Races ${l * 20}% shorter.`, next: (l) => `Races ${(l + 1) * 20}% shorter` },
+    { id: 'pitPro',  icon: '⏱️', name: 'Legendary Pit Crew',    costs: [4, 12],           desc: (l) => `Pit stop green zone +${l * 50}%.`, next: (l) => `Green zone +${(l + 1) * 50}%` },
+    { id: 'cars',    icon: '🤝', name: 'Manufacturer Relations', costs: [5, 15, 40],      desc: (l) => `Cars and licenses ${l * 15}% cheaper.`, next: (l) => `Cars & licenses ${(l + 1) * 15}% cheaper` },
+    { id: 'eng',     icon: '📐', name: 'Engineering Legacy',    costs: [5, 15, 40],       desc: (l) => `Car parts ${l * 20}% cheaper.`, next: (l) => `Parts ${(l + 1) * 20}% cheaper` },
+    { id: 'fans',    icon: '📣', name: 'Fan Favorite',          costs: [4, 12],           desc: (l) => `Sponsor bonuses ${l * 50}% more often.`, next: (l) => `Bonuses ${(l + 1) * 50}% more often` },
+    { id: 'night',   icon: '🌙', name: 'Night Shift',           costs: [5, 20],           desc: (l) => `Offline earnings ${[50, 75, 100][l]}%, up to ${[8, 12, 24][l]}h.`, next: (l) => `Offline ${[75, 100][l]}%, up to ${[12, 24][l]}h` },
+    { id: 'paddock', icon: '🎟️', name: 'Paddock Connections',   costs: [15, 60, 200],     desc: (l) => l ? `Start each season with the ${CLASSES[l].name} license.` : 'Start seasons with higher class licenses.', next: (l) => `Start with the ${CLASSES[l + 1].name} license` },
+  ];
+  const HER_BY_ID = Object.fromEntries(HERITAGE.map(h => [h.id, h]));
+
+  // =====================================================================
+  // Achievements (+2% income each, kept forever)
+  // =====================================================================
+  const ACHIEVEMENTS = [
+    { id: 'tap100',   icon: '👆', name: 'Warm-up Lap',       desc: 'Tap 100 times',                    ok: () => S.stats.taps >= 100 },
+    { id: 'tap1k',    icon: '👆', name: 'Stint Specialist',  desc: 'Tap 1,000 times',                  ok: () => S.stats.taps >= 1000 },
+    { id: 'tap10k',   icon: '👆', name: 'Iron Thumb',        desc: 'Tap 10,000 times',                 ok: () => S.stats.taps >= 1e4 },
+    { id: 'earn1k',   icon: '💵', name: 'First Paycheck',    desc: 'Earn $1K in total',                ok: () => S.totalEarned >= 1e3 },
+    { id: 'earn1m',   icon: '💵', name: 'Millionaire',       desc: 'Earn $1M in total',                ok: () => S.totalEarned >= 1e6 },
+    { id: 'earn1b',   icon: '💰', name: 'Billionaire',       desc: 'Earn $1B in total',                ok: () => S.totalEarned >= 1e9 },
+    { id: 'earn1t',   icon: '💰', name: 'Trillionaire',      desc: 'Earn $1T in total',                ok: () => S.totalEarned >= 1e12 },
+    { id: 'earn1qa',  icon: '🏦', name: 'Motorsport Empire', desc: 'Earn $1Qa in total',               ok: () => S.totalEarned >= 1e15 },
+    { id: 'team10',   icon: '🔧', name: 'Small Shop',        desc: 'Have 10 team members',             ok: () => teamSize() >= 10 },
+    { id: 'team100',  icon: '🔧', name: 'Full Paddock',      desc: 'Have 100 team members',            ok: () => teamSize() >= 100 },
+    { id: 'team500',  icon: '🏭', name: 'Race Factory',      desc: 'Have 500 team members',            ok: () => teamSize() >= 500 },
+    { id: 'team1k',   icon: '🏭', name: 'Industry Giant',    desc: 'Have 1,000 team members',          ok: () => teamSize() >= 1000 },
+    { id: 'car3',     icon: '🚗', name: 'Growing Garage',    desc: 'Own 3 cars',                       ok: () => S.cars.length >= 3 },
+    { id: 'gt3all',   icon: '🚗', name: 'GT3 Collector',     desc: 'Own every GT3 car',                ok: () => CARS.filter(c => c.kind === 'gt3').every(c => S.cars.includes(c.id)) },
+    { id: 'carall',   icon: '🏎️', name: 'Complete Collection', desc: 'Own every car',                  ok: () => S.cars.length >= CARS.length },
+    { id: 'win1',     icon: '🏁', name: 'Maiden Victory',    desc: 'Win a race',                       ok: () => S.stats.wins >= 1 },
+    { id: 'win10',    icon: '🏁', name: 'Serial Winner',     desc: 'Win 10 races',                     ok: () => S.stats.wins >= 10 },
+    { id: 'win50',    icon: '🏁', name: 'Endurance Icon',    desc: 'Win 50 races',                     ok: () => S.stats.wins >= 50 },
+    { id: 'win100',   icon: '🏁', name: 'Centurion',         desc: 'Win 100 races',                    ok: () => S.stats.wins >= 100 },
+    { id: 'lic1',     icon: '🎫', name: 'Going Pro',         desc: 'Earn the GTD PRO license',         ok: () => S.stats.maxLicense >= 1 },
+    { id: 'lic2',     icon: '🎫', name: 'Prototype Pilot',   desc: 'Earn the LMP2 license',            ok: () => S.stats.maxLicense >= 2 },
+    { id: 'lic3',     icon: '🎫', name: 'Top Class',         desc: 'Earn the GTP license',             ok: () => S.stats.maxLicense >= 3 },
+    { id: 'title0',   icon: '🏆', name: 'GTD Champion',      desc: 'Win the GTD championship',         ok: () => S.stats.titles[0] >= 1 },
+    { id: 'title1',   icon: '🏆', name: 'GTD PRO Champion',  desc: 'Win the GTD PRO championship',     ok: () => S.stats.titles[1] >= 1 },
+    { id: 'title2',   icon: '🏆', name: 'LMP2 Champion',     desc: 'Win the LMP2 championship',        ok: () => S.stats.titles[2] >= 1 },
+    { id: 'title3',   icon: '🏆', name: 'GTP Champion',      desc: 'Win the GTP championship',         ok: () => S.stats.titles[3] >= 1 },
+    { id: 'pit1',     icon: '⏱️', name: 'Perfect Stop',      desc: 'Nail a perfect pit stop',          ok: () => S.stats.perfectPits >= 1 },
+    { id: 'pit25',    icon: '⏱️', name: 'Pit Lane Royalty',  desc: 'Nail 25 perfect pit stops',        ok: () => S.stats.perfectPits >= 25 },
+    { id: 'bonus1',   icon: '💰', name: 'Lucky Find',        desc: 'Catch a sponsor bonus',            ok: () => S.stats.bonuses >= 1 },
+    { id: 'bonus25',  icon: '💰', name: 'Sponsor Magnet',    desc: 'Catch 25 sponsor bonuses',         ok: () => S.stats.bonuses >= 25 },
+    { id: 'parts25',  icon: '🛠️', name: 'Development Driver', desc: 'Reach 25 total part levels',      ok: () => partLevels() >= 25 },
+    { id: 'parts100', icon: '🛠️', name: 'Engineering Marvel', desc: 'Reach 100 total part levels',     ok: () => partLevels() >= 100 },
+    { id: 'drv3',     icon: '🧑‍✈️', name: 'Full Lineup',      desc: 'Hire 3 drivers',                   ok: () => S.drivers.length >= 3 },
+    { id: 'push10',   icon: '🔥', name: 'Flat Out',          desc: 'Use PUSH 10 times',                ok: () => S.stats.pushes >= 10 },
+    { id: 'season1',  icon: '⭐', name: 'New Era',           desc: 'Start a new season',               ok: () => S.seasons >= 1 },
+    { id: 'season5',  icon: '⭐', name: 'Dynasty',           desc: 'Start 5 new seasons',              ok: () => S.seasons >= 5 },
+  ];
+
+  // =====================================================================
+  // State
+  // =====================================================================
+  const newChamp = () => ({ year: 0, round: 0, pts: 0, res: [], rivals: RIVALS.map(() => 0), str: RIVALS.map(() => 0.8 + Math.random() * 0.4) });
+  const defaultStats = () => ({ taps: 0, races: 0, wins: 0, bonuses: 0, pushes: 0, perfectPits: 0, playTime: 0, maxLicense: 0, titles: [0, 0, 0, 0], started: Date.now() });
   const defaults = () => ({
-    v: 1,
-    money: 0,
-    seasonEarned: 0,
-    totalEarned: 0,
+    v: 2,
+    teamName: 'Your Team',
+    money: 0, seasonEarned: 0, totalEarned: 0,
     gens: GENS.map(() => 0),
     upgrades: [],
-    classIdx: 0,
-    best: TRACKS.map(() => 0), // best finishing position this season (0 = never)
+    license: 0,
+    cars: ['lexus'],
+    activeCar: 'lexus',
+    parts: { gt3: PARTS.map(() => 0), lmp2: PARTS.map(() => 0), gtp: PARTS.map(() => 0) },
+    drivers: [],
+    champ: CLASSES.map(newChamp),
+    raceClass: 0,
+    seasonWins: 0,
     race: null,
-    cp: 0,
+    lp: 0, lpSpent: 0, lpFromMoney: 0,
+    heritage: {},
+    ach: [],
     seasons: 0,
-    pushUntil: 0,
-    pushReadyAt: 0,
-    stats: { taps: 0, races: 0, wins: 0, bonuses: 0, playTime: 0, started: Date.now() },
-    settings: { haptics: true },
+    pushUntil: 0, pushReadyAt: 0,
+    stats: defaultStats(),
+    settings: { haptics: true, autoRace: true },
     lastSave: Date.now(),
   });
 
@@ -110,22 +305,51 @@
   let owned = new Set(S.upgrades);
   let buyMode = '1';
 
-  function load() {
+  function sanitize(s) {
     const d = defaults();
+    const out = Object.assign(d, s);
+    out.gens = GENS.map((_, i) => (s.gens && s.gens[i]) || 0);
+    out.parts = {};
+    for (const k of ['gt3', 'lmp2', 'gtp']) out.parts[k] = PARTS.map((_, i) => (s.parts && s.parts[k] && s.parts[k][i]) || 0);
+    out.upgrades = (s.upgrades || []).filter(id => UPG_BY_ID[id]);
+    out.cars = (s.cars || ['lexus']).filter(id => CAR_BY_ID[id]);
+    if (!out.cars.length) out.cars = ['lexus'];
+    if (!CAR_BY_ID[out.activeCar] || !out.cars.includes(out.activeCar)) out.activeCar = out.cars[0];
+    out.drivers = (s.drivers || []).filter(i => DRIVERS[i]);
+    out.champ = CLASSES.map((_, i) => Object.assign(newChamp(), (s.champ && s.champ[i]) || {}));
+    out.stats = Object.assign(defaultStats(), s.stats || {});
+    out.stats.titles = [0, 1, 2, 3].map(i => (out.stats.titles && out.stats.titles[i]) || 0);
+    out.settings = Object.assign(d.settings, s.settings || {});
+    out.heritage = Object.assign({}, s.heritage || {});
+    out.ach = (s.ach || []).filter(id => ACHIEVEMENTS.some(a => a.id === id));
+    out.license = Math.max(0, Math.min(3, out.license | 0));
+    out.raceClass = Math.max(0, Math.min(3, out.raceClass | 0));
+    return out;
+  }
+
+  function load() {
     try {
       const raw = localStorage.getItem(SAVE_KEY);
-      if (!raw) return d;
-      const s = JSON.parse(raw);
-      const out = Object.assign(d, s);
-      out.gens = GENS.map((_, i) => (s.gens && s.gens[i]) || 0);
-      out.best = TRACKS.map((_, i) => (s.best && s.best[i]) || 0);
-      out.stats = Object.assign(defaults().stats, s.stats || {});
-      out.settings = Object.assign(defaults().settings, s.settings || {});
-      out.upgrades = (s.upgrades || []).filter(id => UPG_BY_ID[id]);
-      return out;
-    } catch (e) {
-      return d;
-    }
+      if (raw) return sanitize(JSON.parse(raw));
+      const old = localStorage.getItem(OLD_SAVE_KEY);
+      if (old) return migrateV1(JSON.parse(old));
+    } catch (e) { /* corrupt or unavailable storage: start fresh */ }
+    return defaults();
+  }
+
+  function migrateV1(o) {
+    const lic = Math.max(0, Math.min(3, o.classIdx | 0));
+    const cars = ['lexus'];
+    if (lic >= 2) cars.push('riley');
+    if (lic >= 3) cars.push('arx06');
+    return sanitize({
+      money: o.money || 0, seasonEarned: o.seasonEarned || 0, totalEarned: o.totalEarned || 0,
+      gens: o.gens, upgrades: o.upgrades, license: lic, cars, activeCar: cars[cars.length - 1],
+      raceClass: KIND_CLASS[CAR_BY_ID[cars[cars.length - 1]].kind],
+      lp: o.cp || 0, lpFromMoney: o.cp || 0, seasons: o.seasons || 0,
+      stats: Object.assign({}, o.stats || {}, { maxLicense: lic }),
+      settings: o.settings, lastSave: o.lastSave,
+    });
   }
 
   function save() {
@@ -134,7 +358,9 @@
     try { localStorage.setItem(SAVE_KEY, JSON.stringify(S)); } catch (e) { /* storage unavailable */ }
   }
 
-  // ================= Formatting =================
+  // =====================================================================
+  // Formatting
+  // =====================================================================
   const UNITS = ['K', 'M', 'B', 'T', 'Qa', 'Qi', 'Sx', 'Sp', 'Oc', 'No', 'Dc'];
   function fmt(n) {
     if (!isFinite(n)) return '∞';
@@ -148,7 +374,7 @@
     const v = n / Math.pow(10, e * 3);
     return (v < 10 ? v.toFixed(2) : v < 100 ? v.toFixed(1) : Math.floor(v).toString()) + UNITS[e - 1];
   }
-  const money = (n) => '$' + fmt(n);
+  function money(n) { return '$' + fmt(n); }
   function fmtTime(s) {
     s = Math.max(0, Math.round(s));
     const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60;
@@ -156,9 +382,18 @@
     if (m) return `${m}m ${sec}s`;
     return `${sec}s`;
   }
-  const ordinal = (p) => 'P' + p;
+  const esc = (t) => String(t).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+  const pct = (v) => Math.round(v * 100) + '%';
 
-  // ================= Economy =================
+  // =====================================================================
+  // Derived values
+  // =====================================================================
+  const her = (id) => S.heritage[id] || 0;
+  const activeCar = () => CAR_BY_ID[S.activeCar];
+  const teamSize = () => S.gens.reduce((a, b) => a + b, 0);
+  const kindParts = (kind = activeCar().kind) => S.parts[kind];
+  const partLevels = (kind) => (kind ? S.parts[kind] : [...S.parts.gt3, ...S.parts.lmp2, ...S.parts.gtp]).reduce((a, b) => a + b, 0);
+
   function upgradeProduct(type) {
     let m = 1;
     for (const id of owned) { const u = UPG_BY_ID[id]; if (u.type === type) m *= u.val; }
@@ -169,10 +404,21 @@
     for (const id of owned) { const u = UPG_BY_ID[id]; if (u.type === type) v = Math.max(v, u.val); }
     return v;
   }
-  function trophies() { return S.best.filter(p => p === 1).length; }
+  function lineup() {
+    return [...S.drivers].sort((a, b) => DRIVERS[b].tier - DRIVERS[a].tier || b - a).slice(0, LINEUP_SIZE);
+  }
+  // Sum of a perk type from the active car + driver lineup.
+  function perk(type) {
+    let v = 0;
+    const c = activeCar();
+    if (c.perk[0] === type) v += c.perk[1];
+    for (const i of lineup()) if (DRIVERS[i].perk[0] === type) v += DRIVERS[i].perk[1];
+    return v;
+  }
+
   function pushActive(now = Date.now()) { return now < S.pushUntil; }
   function pushMult() { return upgradeMax('pushMult', 2); }
-  function pushDur() { return upgradeMax('pushDur', 30); }
+  function pushDur() { return upgradeMax('pushDur', 30) + perk('pushDur'); }
 
   function genMult(i) {
     let m = 1;
@@ -182,26 +428,60 @@
     return m;
   }
   function permanentMult() {
-    return CLASSES[S.classIdx].mult * (1 + CP_BONUS * S.cp) * (1 + TROPHY_BONUS * trophies()) * upgradeProduct('global');
+    return CLASSES[S.license].mult
+      * (1 + LP_BONUS * S.lp)
+      * (1 + WIN_BONUS * Math.min(WIN_BONUS_CAP, S.seasonWins))
+      * (1 + CAR_BONUS * (S.cars.length - 1))
+      * (1 + ACH_BONUS * S.ach.length)
+      * (1 + perk('income'))
+      * upgradeProduct('global');
   }
-  function globalMult(now) {
-    return permanentMult() * (pushActive(now) ? pushMult() : 1);
-  }
+  function globalMult(now) { return permanentMult() * (pushActive(now) ? pushMult() : 1); }
   function genIps(i, now) { return GENS[i].ips * genMult(i) * globalMult(now); }
   function totalIps(now = Date.now(), withPush = true) {
     let base = 0;
     for (let i = 0; i < GENS.length; i++) base += S.gens[i] * GENS[i].ips * genMult(i);
     return base * (withPush ? globalMult(now) : permanentMult());
   }
-  function tapValue(now = Date.now()) {
-    const flat = 1 * upgradeProduct('tap') * globalMult(now);
-    return flat + totalIps(now) * tapPctSum();
-  }
   function tapPctSum() {
     let s = 0;
     for (const id of owned) { const u = UPG_BY_ID[id]; if (u.type === 'tapPct') s += u.val; }
     return s;
   }
+  function tapValue(now = Date.now()) {
+    const flat = upgradeProduct('tap') * Math.pow(3, her('tapper')) * (1 + perk('tap')) * globalMult(now);
+    return flat + totalIps(now) * tapPctSum();
+  }
+
+  // Racing
+  const partsMult = (kind = activeCar().kind) => 1 + PART_STEP * partLevels(kind);
+  const driversMult = () => 1 + lineup().reduce((a, i) => a + TIERS[DRIVERS[i].tier].pace, 0);
+  function pace(car = activeCar()) { return car.pace * partsMult(car.kind) * driversMult() * (1 + perk('pace')); }
+  // Rivals get 10% faster for every title you've won in that class.
+  function trackReq(c, t, titles) { return CLASSES[c].req * (1 + 0.05 * t) * (1 + 0.1 * titles); }
+  function expectedPos(r) { return 10 - 30 * (r - 1); }
+  const clampPos = (p) => Math.max(1, Math.min(FIELD, Math.round(p)));
+  function raceDuration(t) {
+    const f = Math.max(0.3, 1 - 0.2 * her('speed') - perk('raceSpeed'));
+    return Math.round((20 + TRACKS[t].hours * 1.5) * f);
+  }
+  function posMult(pos) { return pos === 1 ? 2 : pos === 2 ? 1.6 : pos === 3 ? 1.4 : Math.max(0.2, 1.2 - 0.05 * pos); }
+  function prizeFor(c, t, pos, year) {
+    const base = CLASSES[c].prize * (1 + 0.1 * t) * (1 + 0.25 * year) + totalIps(Date.now(), false) * 8;
+    return base * posMult(pos) * upgradeProduct('prize') * (1 + perk('prize'));
+  }
+  function canRaceClass(c, car = activeCar()) {
+    if (c > S.license) return false;
+    return car.kind === CLASSES[c].kind;
+  }
+  function eligibleClasses(car = activeCar()) { return CLASSES.map((_, c) => c).filter(c => canRaceClass(c, car)); }
+
+  // Prices
+  const carDisc = () => 1 - 0.15 * her('cars');
+  const carPrice = (car) => car.price * carDisc();
+  const licensePrice = (c) => CLASSES[c].license.cost * carDisc();
+  const partPrice = (i, kind = activeCar().kind) => PART_KIND_COST[kind] * PARTS[i].base * Math.pow(PART_GROWTH, S.parts[kind][i]) * (1 - 0.2 * her('eng')) * (1 - perk('partsDisc'));
+  const heritageCost = (h) => h.costs[her(h.id)];
 
   function costFor(i, k) {
     const g = GENS[i], r = COST_GROWTH;
@@ -215,10 +495,7 @@
     while (k > 0 && costFor(i, k) > S.money) k--;
     return k;
   }
-  function buyQty(i) {
-    if (buyMode === 'max') return Math.max(1, maxAffordable(i));
-    return parseInt(buyMode, 10);
-  }
+  function buyQty(i) { return buyMode === 'max' ? Math.max(1, maxAffordable(i)) : parseInt(buyMode, 10); }
 
   function earn(x) {
     S.money += x;
@@ -226,11 +503,14 @@
     S.totalEarned += x;
   }
 
-  function cpPotential() { return Math.floor(Math.sqrt(S.totalEarned / CP_DIVISOR)); }
-  function cpGain() { return Math.max(0, cpPotential() - S.cp); }
-  function nextCpAt() { return Math.pow(cpPotential() + 1, 2) * CP_DIVISOR; }
+  const lpPotential = () => Math.floor(Math.cbrt(S.totalEarned / LP_DIVISOR));
+  const lpGain = () => Math.max(0, lpPotential() - S.lpFromMoney);
+  const lpFree = () => S.lp - S.lpSpent;
+  const nextLpAt = () => Math.pow(Math.max(lpPotential(), S.lpFromMoney) + 1, 3) * LP_DIVISOR;
 
-  // ================= Actions =================
+  // =====================================================================
+  // Actions
+  // =====================================================================
   function buyGen(i) {
     const k = buyQty(i);
     const c = costFor(i, k);
@@ -241,7 +521,6 @@
     const hit = MILESTONES.find(t => before < t && S.gens[i] >= t);
     if (hit) toast(`${GENS[i].icon} ${GENS[i].name} x${hit} milestone — output doubled!`);
     buzz(8);
-    renderTeam(true);
   }
 
   function buyUpgrade(id) {
@@ -250,20 +529,69 @@
     S.money -= u.cost;
     owned.add(id);
     buzz(10);
-    renderUpgrades(true);
-    renderTeam(true);
   }
 
-  function buyClass() {
-    const next = CLASSES[S.classIdx + 1];
-    if (!next || S.money < next.cost) return;
-    S.money -= next.cost;
-    S.classIdx++;
-    applyClassTheme();
+  function buyPart(i) {
+    const lv = kindParts();
+    if (lv[i] >= PART_MAX) return;
+    const c = partPrice(i);
+    if (S.money < c) return;
+    S.money -= c;
+    lv[i]++;
+    buzz(8);
+  }
+
+  function hireDriver(i) {
+    const d = DRIVERS[i];
+    if (S.drivers.includes(i) || S.money < d.cost) return;
+    S.money -= d.cost;
+    S.drivers.push(i);
+    buzz(12);
+    const inLineup = lineup().includes(i);
+    toast(`🧑‍✈️ ${d.name} signed${inLineup ? ' and joins the lineup' : ''}!`);
+  }
+
+  function buyCar(id) {
+    const car = CAR_BY_ID[id];
+    if (S.cars.includes(id) || KIND_CLASS[car.kind] > S.license) return;
+    const price = carPrice(car);
+    if (S.money < price) return;
+    S.money -= price;
+    S.cars.push(id);
+    S.activeCar = id;
+    const elig = eligibleClasses(car);
+    if (!elig.includes(S.raceClass)) S.raceClass = elig[elig.length - 1];
     renderCar();
-    renderUpgrades(true);
     buzz([20, 40, 20]);
-    modal(`Welcome to ${next.name}!`, `<p>Your team has stepped up to <b>${next.name}</b>.</p><p>${next.desc}</p>`, [{ label: 'Let’s race' }]);
+    modal(`New car: ${car.name}`, `<div class="modal-car">${carSVG(car)}</div><p>Pace <b>${car.pace}</b> · ${PERK_TEXT[car.perk[0]](car.perk[1])}</p><p>Every car in your garage adds <b>+${pct(CAR_BONUS)}</b> income.</p>`, [{ label: 'Take it out' }]);
+  }
+
+  function equipCar(id) {
+    if (!S.cars.includes(id) || S.race) return;
+    S.activeCar = id;
+    const elig = eligibleClasses();
+    if (!elig.includes(S.raceClass)) S.raceClass = elig[elig.length - 1];
+    renderCar();
+    buzz(10);
+  }
+
+  function buyLicense(c) {
+    const cls = CLASSES[c];
+    if (c !== S.license + 1) return;
+    if (S.champ[c - 1] && winsInClass(c - 1) < cls.license.wins) return;
+    const price = licensePrice(c);
+    if (S.money < price) return;
+    S.money -= price;
+    S.license = c;
+    S.stats.maxLicense = Math.max(S.stats.maxLicense, c);
+    applyClassTheme();
+    buzz([20, 40, 20]);
+    const needsCar = cls.kind !== 'gt3' ? `<p>Buy a ${cls.name} car in the showroom to start racing.</p>` : '<p>Pick GTD PRO in the Races tab.</p>';
+    modal(`🎫 ${cls.name} license!`, `<p>${cls.desc}</p>${needsCar}`, [{ label: 'Let’s go' }]);
+  }
+
+  function winsInClass(c) {
+    return S.champ[c].wins || 0;
   }
 
   function activatePush() {
@@ -271,83 +599,345 @@
     if (now < S.pushReadyAt) return;
     S.pushUntil = now + pushDur() * 1000;
     S.pushReadyAt = now + PUSH_COOLDOWN_MS + pushDur() * 1000;
+    S.stats.pushes++;
     buzz([15, 30, 15]);
     toast(`🔥 PUSH! Income x${pushMult()} for ${pushDur()}s`);
   }
 
-  function trackUnlocked(t) { return t === 0 || (S.best[t - 1] > 0 && S.best[t - 1] <= 3); }
-  function raceDuration(t) { return Math.round(20 + TRACKS[t].hours * 1.5); }
-  function predictPos(t, ips) {
-    const r = Math.max(1e-9, ips / TRACKS[t].req);
-    return 10 - 4.5 * Math.log2(r);
+  function buyHeritage(id) {
+    const h = HER_BY_ID[id];
+    const lvl = her(id);
+    if (lvl >= h.costs.length) return;
+    const cost = h.costs[lvl];
+    if (lpFree() < cost) return;
+    S.lpSpent += cost;
+    S.heritage[id] = lvl + 1;
+    if (id === 'paddock' && S.license < lvl + 1) {
+      S.license = lvl + 1;
+      S.stats.maxLicense = Math.max(S.stats.maxLicense, S.license);
+      applyClassTheme();
+    }
+    buzz([15, 30, 15]);
+    toast(`${h.icon} ${h.name} upgraded!`);
   }
 
-  function startRace(t) {
-    if (S.race || !trackUnlocked(t)) return;
+  // ---------------- Races ----------------
+  let autoStarted = false;
+  function startRace(c, auto = false) {
+    if (S.race || !canRaceClass(c)) return;
+    const ch = S.champ[c];
+    const t = ch.round;
     const now = Date.now();
-    const raw = predictPos(t, totalIps(now)) + (Math.random() * 3 - 1.5);
-    const finalPos = Math.max(1, Math.min(FIELD, Math.round(raw)));
+    const r = pace() / trackReq(c, t, ch.titles || 0);
+    const base = expectedPos(r) + (Math.random() * 3 - 1.5);
     const dur = raceDuration(t) * 1000;
-    S.race = { t, start: now, end: now + dur, dur, finalPos, grid: Math.min(FIELD, finalPos + 3 + Math.floor(Math.random() * 6)) };
+    S.raceClass = c;
+    S.race = { c, t, start: now, end: now + dur, dur, base, pit: null, grid: clampPos(base + 4 + Math.random() * 6) };
+    autoStarted = auto;
     buzz(20);
-    toast(`🟢 Green flag at ${TRACKS[t].name}!`);
-    renderRaces(true);
-    switchTab('races');
+    if (!auto) toast(`🟢 Green flag at ${TRACKS[t].name}!`);
   }
 
-  function prizeFor(t, pos) {
-    const mult = pos === 1 ? 6 : pos === 2 ? 4 : pos === 3 ? 3 : Math.max(0.2, 2.2 - 0.1 * pos);
-    return TRACKS[t].req * 90 * mult * upgradeProduct('prize') * CLASSES[S.classIdx].mult;
+  function racePos(r) {
+    const adj = { perfect: -2.5, good: -1.2, slow: 0.4, miss: 1, none: 0 }[r.pit || 'none'];
+    return clampPos(r.base + adj);
   }
 
   function finishRace() {
     const r = S.race;
     S.race = null;
-    const t = r.t, pos = r.finalPos;
-    const prize = prizeFor(t, pos);
+    closePit();
+    if (!r.pit) r.pit = her('autoPit') ? 'good' : 'slow';
+    const c = r.c, t = r.t;
+    const ch = S.champ[c];
+    const pos = racePos(r);
+    const prize = prizeFor(c, t, pos, ch.year);
     earn(prize);
     S.stats.races++;
-    const firstWin = pos === 1 && S.best[t] !== 1;
-    if (pos === 1) S.stats.wins++;
-    const prevBest = S.best[t];
-    if (!prevBest || pos < prevBest) S.best[t] = pos;
-    const unlockedNext = t + 1 < TRACKS.length && pos <= 3 && !(prevBest && prevBest <= 3);
-    buzz(pos <= 3 ? [30, 50, 30, 50, 60] : 25);
+    if (pos === 1) { S.stats.wins++; S.seasonWins++; ch.wins = (ch.wins || 0) + 1; }
 
-    const title = pos === 1 ? '🏆 VICTORY!' : pos <= 3 ? '🍾 Podium!' : '🏁 Checkered flag';
-    let body = `<p>${TRACKS[t].name}</p><div class="big-num pos-${Math.min(pos, 4)}">${ordinal(pos)}</div><p>Prize money: <b>${money(prize)}</b></p>`;
-    if (firstWin) body += `<p>🏆 First win here: <b>+${TROPHY_BONUS * 100}% income</b> this season!</p>`;
-    if (unlockedNext) body += `<p>🔓 Unlocked <b>${TRACKS[t + 1].name}</b>.</p>`;
-    if (pos > 3) body += `<p>Finish on the podium to unlock the next round.</p>`;
-    modal(title, body, [{ label: 'Continue' }]);
-    renderRaces(true);
+    // Championship points: rivals fill the other positions.
+    ch.pts += POINTS[pos - 1] || 0;
+    const order = RIVALS.map((_, j) => ({ j, s: ch.str[j] + Math.random() * 1.5 })).sort((a, b) => b.s - a.s);
+    let p = 1;
+    for (const o of order) {
+      if (p === pos) p++;
+      ch.rivals[o.j] += POINTS[p - 1] || 0;
+      p++;
+    }
+    ch.res.push(pos);
+    ch.round++;
+
+    const lic = c + 1 < CLASSES.length ? CLASSES[c + 1].license : null;
+    const unlockMsg = lic && S.license === c && ch.wins === lic.wins
+      ? `<p>🎫 ${lic.wins} wins! You can now buy the <b>${CLASSES[c + 1].name}</b> license in the Garage.</p>` : '';
+
+    buzz(pos <= 3 ? [30, 50, 30, 50, 60] : 25);
+    const pitTxt = { perfect: '⚡ Perfect pit stop', good: '✅ Good pit stop', slow: '🐢 Slow pit stop', miss: '❌ Fumbled pit stop' }[r.pit];
+    const champDone = ch.round >= TRACKS.length;
+
+    if (autoStarted && !champDone && !unlockMsg) {
+      toast(`🏁 ${TRACKS[t].name}: P${pos} · +${money(prize)}`);
+    } else {
+      const title = pos === 1 ? '🏆 VICTORY!' : pos <= 3 ? '🍾 Podium!' : '🏁 Checkered flag';
+      const body = `<p>${CLASSES[c].name} · ${TRACKS[t].name}</p><div class="big-num pos-${Math.min(pos, 4)}">P${pos}</div>
+        <p>Prize money <b>${money(prize)}</b> · +${POINTS[pos - 1] || 0} pts</p><p class="muted">${pitTxt}</p>
+        ${pos === 1 ? `<p>Race wins add <b>+${pct(WIN_BONUS)}</b> income each this season.</p>` : ''}${unlockMsg}`;
+      modal(title, body, [{ label: champDone ? 'Final standings' : 'Continue' }]);
+    }
+    if (champDone) endChampionship(c);
   }
 
+  function standings(c) {
+    const ch = S.champ[c];
+    const rows = RIVALS.map((n, j) => ({ name: n, pts: ch.rivals[j], you: false }));
+    rows.push({ name: S.teamName, pts: ch.pts, you: true });
+    return rows.sort((a, b) => b.pts - a.pts || (a.you ? -1 : 1));
+  }
+
+  function endChampionship(c) {
+    const ch = S.champ[c];
+    const table = standings(c);
+    const place = table.findIndex(r => r.you) + 1;
+    let body = `<p>${CLASSES[c].name} championship · Year ${ch.year + 1}</p>`;
+    const titled = place === 1;
+    if (titled) {
+      const lp = TITLE_LP[c];
+      S.lp += lp;
+      S.stats.titles[c]++;
+      body += `<div class="big-num">🏆 CHAMPIONS</div><p>Title bonus: <b>+${lp} ⭐ Legacy</b> (yours forever).</p>`;
+    } else {
+      body += `<div class="big-num">P${place}</div><p>Finish first in the standings to win the title and Legacy Points.</p>`;
+    }
+    body += standingsHTML(table.slice(0, 5));
+    body += `<p class="muted">Year ${ch.year + 2} starts now: prizes are 25% bigger${titled ? ' and rivals are 10% faster to beat the champions' : ''}.</p>`;
+    modal(titled ? 'Champions!' : 'Season complete', body, [{ label: 'Next year' }]);
+    Object.assign(ch, newChamp(), { year: ch.year + 1, wins: ch.wins, titles: (ch.titles || 0) + (titled ? 1 : 0) });
+    buzz(place === 1 ? [40, 60, 40, 60, 80] : 30);
+  }
+
+  function standingsHTML(rows) {
+    return `<div class="standings">${rows.map((r, i) => `<div class="st-row${r.you ? ' you' : ''}"><span>${i + 1}</span><span>${esc(r.name)}</span><b>${r.pts}</b></div>`).join('')}</div>`;
+  }
+
+  // Pit stop mini-game
+  const pitBox = document.getElementById('pitBox');
+  const pitNeedle = document.getElementById('pitNeedle');
+  const pitZone = document.getElementById('pitZone');
+  const pitPerfect = document.getElementById('pitPerfect');
+  let pitOpenAt = 0, pitZoneW = 0.2;
+  function pitWidth() { return Math.min(0.6, 0.2 * (1 + 0.5 * her('pitPro')) * (1 + perk('pit'))); }
+  function openPit() {
+    pitOpenAt = performance.now();
+    pitZoneW = pitWidth();
+    pitZone.style.left = (50 - pitZoneW * 50) + '%';
+    pitZone.style.width = (pitZoneW * 100) + '%';
+    pitPerfect.style.left = (50 - pitZoneW * 15) + '%';
+    pitPerfect.style.width = (pitZoneW * 30) + '%';
+    pitBox.classList.remove('hidden');
+    buzz([10, 20, 10]);
+  }
+  function closePit() { pitBox.classList.add('hidden'); pitOpenAt = 0; }
+  function needlePos(t) { return (Math.sin((t - pitOpenAt) / 1000 * 3.6 - Math.PI / 2) + 1) / 2; }
+  function resolvePit(result) {
+    if (!S.race || S.race.pit) return;
+    S.race.pit = result;
+    closePit();
+    if (result === 'perfect') S.stats.perfectPits++;
+    const msg = { perfect: '⚡ PERFECT STOP! +2 places', good: '✅ Good stop! +1 place', miss: '❌ Wheel nut stuck… lost a place', slow: '🐢 Slow stop' }[result];
+    toast(msg);
+    buzz(result === 'perfect' ? [20, 30, 20, 30] : 15);
+  }
+  pitBox.addEventListener('pointerdown', (e) => {
+    e.stopPropagation();
+    e.preventDefault();
+    const d = Math.abs(needlePos(performance.now()) - 0.5);
+    resolvePit(d <= pitZoneW * 0.15 ? 'perfect' : d <= pitZoneW * 0.5 ? 'good' : 'miss');
+  });
+
+  // ---------------- Seasons ----------------
   function newSeason() {
-    const gain = cpGain();
+    const gain = lpGain();
     if (gain <= 0) return;
-    modal('Start a new season?', `<p>Your team, cars, upgrades, money and race results reset.</p><p>You keep everything else and earn</p><div class="big-num">+${gain} 🏆</div><p>Each Championship Point permanently adds +${CP_BONUS * 100}% income.</p>`, [
+    modal('Start a new season?', `<p>Money, team, upgrades, cars, parts, drivers, licenses and championships reset.</p>
+      <p>You keep Legacy Points, Legacy perks, achievements and stats, and earn</p><div class="big-num">+${gain} ⭐</div>
+      <p>Each Legacy Point adds +${pct(LP_BONUS)} income forever and can be spent on Legacy perks.</p>`, [
       { label: 'Not yet', ghost: true },
       { label: 'New season', action: () => {
-        const keep = { cp: S.cp + gain, seasons: S.seasons + 1, totalEarned: S.totalEarned, stats: S.stats, settings: S.settings };
+        const keep = {
+          lp: S.lp + gain, lpSpent: S.lpSpent, lpFromMoney: S.lpFromMoney + gain, heritage: S.heritage, ach: S.ach,
+          seasons: S.seasons + 1, totalEarned: S.totalEarned, stats: S.stats, settings: S.settings, teamName: S.teamName,
+        };
         S = Object.assign(defaults(), keep);
+        S.money = [0, 1e4, 1e6, 1e8, 1e10][her('seed')] || 0;
+        S.license = her('paddock');
         owned = new Set();
         save();
         applyClassTheme();
         renderCar();
-        renderAll(true);
-        toast(`🏆 Season ${S.seasons + 1} begins! +${gain} CP`);
+        toast(`⭐ Season ${S.seasons + 1} begins! +${gain} Legacy`);
         buzz([30, 40, 30]);
       } },
     ]);
   }
 
-  // ================= Tap & effects =================
-  const stage = document.getElementById('stage');
-  const fx = document.getElementById('fx');
-  const carEl = document.getElementById('car');
-  const tapHint = document.getElementById('tapHint');
+  // =====================================================================
+  // Car artwork (SVG)
+  // =====================================================================
+  let svgUid = 0;
+  function quadPoint(p0, c, p1, t) {
+    const u = 1 - t;
+    return [u * u * p0[0] + 2 * u * t * c[0] + t * t * p1[0], u * u * p0[1] + 2 * u * t * c[1] + t * t * p1[1]];
+  }
+  function quadAtY(p0, c, p1, y) {
+    // monotonic curve: find t where curve crosses y
+    let lo = 0, hi = 1;
+    const dir = p1[1] > p0[1] ? 1 : -1;
+    for (let k = 0; k < 24; k++) {
+      const m = (lo + hi) / 2;
+      const py = quadPoint(p0, c, p1, m)[1];
+      if ((py - y) * dir < 0) lo = m; else hi = m;
+    }
+    return (lo + hi) / 2;
+  }
+
+  function liveryShapes(L, g) {
+    const { p, c2, c3, c4 } = L;
+    switch (p) {
+      case 'band': return `<path d="M112 0 L146 0 L116 80 L82 80 Z" fill="${c2}"/><path d="M148 0 L156 0 L126 80 L118 80 Z" fill="${c3}"/>`;
+      case 'nose': return `<path d="M176 0 L240 0 L240 80 L150 80 Z" fill="${c2}"/><path d="M170 0 L176 0 L150 80 L144 80 Z" fill="${c3}"/>`;
+      case 'tail': return `<path d="M0 0 L66 0 L92 80 L0 80 Z" fill="${c2}"/><path d="M66 0 L73 0 L99 80 L92 80 Z" fill="${c3}"/>`;
+      case 'lower': return `<path d="M0 ${g + 4} L150 ${g + 1} Q200 ${g - 2} 240 ${g - 10} L240 80 L0 80 Z" fill="${c2}"/><path d="M0 ${g + 2} L150 ${g - 1} Q200 ${g - 4} 240 ${g - 12} L240 ${g - 9} Q200 ${g - 1} 150 ${g + 2} L0 ${g + 5} Z" fill="${c3}"/>`;
+      case 'mstripes': return `<path d="M118 0 L126 0 L100 80 L92 80 Z" fill="${c2}"/><path d="M128 0 L136 0 L110 80 L102 80 Z" fill="${c3}"/><path d="M138 0 L146 0 L120 80 L112 80 Z" fill="${c4}"/>`;
+      case 'stripes2': return `<rect x="0" y="${g - 4}" width="240" height="3" fill="${c2}"/><rect x="0" y="${g + 1}" width="240" height="3" fill="${c3}"/>`;
+      default: return '';
+    }
+  }
+
+  function wheelSVG(cx, rim) {
+    const cy = 60;
+    return `<g class="wheel" data-cx="${cx}" data-cy="${cy}">
+      <circle cx="${cx}" cy="${cy}" r="16" fill="#0d0d0f"/>
+      <circle cx="${cx}" cy="${cy}" r="14.2" fill="#1b1c20"/>
+      <circle cx="${cx}" cy="${cy}" r="10.5" fill="${rim}"/>
+      <circle cx="${cx}" cy="${cy}" r="7.5" fill="#5a1d1d" opacity=".55"/>
+      <g stroke="#2b2f36" stroke-width="2.4" stroke-linecap="round">
+        <line x1="${cx - 9.5}" y1="${cy}" x2="${cx + 9.5}" y2="${cy}"/><line x1="${cx}" y1="${cy - 9.5}" x2="${cx}" y2="${cy + 9.5}"/>
+        <line x1="${cx - 6.7}" y1="${cy - 6.7}" x2="${cx + 6.7}" y2="${cy + 6.7}"/><line x1="${cx - 6.7}" y1="${cy + 6.7}" x2="${cx + 6.7}" y2="${cy - 6.7}"/>
+      </g>
+      <circle cx="${cx}" cy="${cy}" r="3" fill="#e33"/>
+    </g>`;
+  }
+
+  // Bottom edge of the body with wheel arches cut out (drawn right to left).
+  function archedSill(nose, tail, rw, fw, sill) {
+    const R = 19.5;
+    return `L${fw + R} ${sill} A${R} ${R} 0 0 0 ${fw - R} ${sill} L${rw + R} ${sill} A${R} ${R} 0 0 0 ${rw - R} ${sill} L${tail} ${sill} Z`;
+  }
+
+  function numberPanel(x, y, num, cls) {
+    return `<rect x="${x - 11}" y="${y - 8}" width="22" height="16" rx="3" fill="#fff"/>
+      <rect x="${x - 11}" y="${y + 5}" width="22" height="3" rx="1" fill="${cls}"/>
+      <text x="${x}" y="${y + 3.5}" text-anchor="middle" font-size="10.5" font-weight="900" font-family="Arial, Helvetica, sans-serif" fill="#111">${num}</text>`;
+  }
+
+  function carSVG(car) {
+    const id = 'c' + (++svgUid);
+    const L = car.liv;
+    const clsColor = CLASSES[KIND_CLASS[car.kind]].color;
+    const sill = 62;
+    let body, glass, extras = '', num, g;
+    if (car.shape === 'gt') {
+      const { rw, fw, deckY, rearBase, r1, r2, roofY, wsBase, beltY, noseY } = car;
+      const tail = 8, nose = 232;
+      const rg0 = [rearBase, deckY - 1], rgc = [(rearBase + r1) / 2, roofY + 2], rg1 = [r1, roofY];
+      const ws0 = [r2, roofY], wsc = [r2 + (wsBase - r2) * 0.45, roofY + 1], ws1 = [wsBase, beltY];
+      body = `M${tail} ${sill} L${tail} ${deckY + 8} Q${tail} ${deckY} ${tail + 10} ${deckY}
+        L${rg0[0]} ${rg0[1]} Q${rgc[0]} ${rgc[1]} ${rg1[0]} ${rg1[1]} L${ws0[0]} ${ws0[1]} Q${wsc[0]} ${wsc[1]} ${ws1[0]} ${ws1[1]}
+        Q${(wsBase + nose) / 2} ${beltY + 1} ${nose - 9} ${noseY} Q${nose} ${noseY + 1} ${nose} ${noseY + 9} L${nose - 3} ${sill} ${archedSill(nose, tail, rw, fw, sill)}`;
+      // Glass: sample the roofline, then inset it.
+      const wy = Math.min(beltY, deckY + 4) - 1;
+      // Rear glass starts at most ~32px behind the roof (engine cover / C-pillar behind it).
+      let ta = quadAtY(rg0, rgc, rg1, wy);
+      for (let k = 0; k < 40 && quadPoint(rg0, rgc, rg1, ta)[0] < r1 - 32; k++) ta += 0.025;
+      ta = Math.min(ta, 0.9);
+      const tb = quadAtY(ws0, wsc, ws1, wy);
+      const pts = [];
+      for (let k = 0; k <= 8; k++) pts.push(quadPoint(rg0, rgc, rg1, ta + (1 - ta) * k / 8));
+      for (let k = 0; k <= 8; k++) pts.push(quadPoint(ws0, wsc, ws1, tb * k / 8));
+      const cx = (pts[0][0] + pts[pts.length - 1][0]) / 2;
+      const inset = pts.map(([x, y]) => [x + (x < cx ? 3.5 : -3.5), y + 2.8]);
+      glass = 'M' + inset.map(p => p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join(' L') + ` L${inset[inset.length - 1][0].toFixed(1)} ${wy} L${(inset[0][0] + 4).toFixed(1)} ${wy} Z`;
+      const pillarX = r1 + (r2 - r1) * 0.62;
+      extras += `<path d="M${pillarX} ${roofY + 2} L${pillarX + 4} ${wy}" stroke="${L.base}" stroke-width="2.6"/>`;
+      // Swan-neck rear wing + splitter + lights + mirror
+      const wx = tail + 2, wY = Math.min(deckY - 12, roofY + 6);
+      extras += `<path d="M${wx + 14} ${deckY} Q${wx + 12} ${wY + 4} ${wx + 18} ${wY + 2}" stroke="#1c1c1f" stroke-width="2.4" fill="none"/>
+        <path d="M${wx} ${wY} L${wx + 30} ${wY - 1} L${wx + 30} ${wY + 3} L${wx} ${wY + 4} Z" fill="#1c1c1f"/>
+        <rect x="${wx - 1}" y="${wY - 5}" width="3" height="12" rx="1" fill="#1c1c1f"/>
+        <path d="M${nose - 26} ${sill} L${nose + 4} ${sill} L${nose + 4} ${sill + 2} L${nose - 26} ${sill + 2} Z" fill="#141414"/>
+        <path d="M${nose - 12} ${noseY + 1} Q${nose - 3} ${noseY + 1} ${nose - 1} ${noseY + 5} L${nose - 13} ${noseY + 4} Z" fill="#fff4c8"/>
+        <rect x="${tail}" y="${deckY + 3}" width="5" height="4" rx="1" fill="#ff2e2e"/>
+        <path d="M${wsBase - 8} ${beltY - 2} l7 -4 l3 0 l-1 5 Z" fill="${L.base}" stroke="#111" stroke-width=".6"/>
+        <path d="M${rw - 24} ${sill} A24 24 0 0 1 ${rw + 24} ${sill}" fill="none" stroke="rgba(0,0,0,.28)" stroke-width="1.6"/>
+        <path d="M${fw - 24} ${sill} A24 24 0 0 1 ${fw + 24} ${sill}" fill="none" stroke="rgba(0,0,0,.28)" stroke-width="1.6"/>
+        <path d="M${fw + 24} ${sill - 8} l10 0 l-2 5 l-8 0 Z" fill="#111" opacity=".7"/>`;
+      num = numberPanel((r1 + r2) / 2 + 2, beltY + 9, car.num, clsColor);
+      g = beltY + 10;
+    } else {
+      const { rw, fw, rearTop, midY, frontTop, noseY, cx1, cx2, ctop, wingY } = car;
+      const tail = 4, nose = 236;
+      body = `M${tail} ${sill} L${tail} ${rearTop + 6} Q${tail} ${rearTop + 1} ${tail + 12} ${rearTop}
+        Q${rw} ${rearTop - 6} ${rw + 24} ${rearTop + 1} Q${rw + 34} ${midY} ${rw + 44} ${midY}
+        L${fw - 32} ${midY} Q${fw - 24} ${frontTop - 2} ${fw - 4} ${frontTop - 3} Q${fw + 16} ${frontTop - 2} ${fw + 26} ${frontTop + 4}
+        Q${fw + 34} ${noseY - 4} ${nose - 4} ${noseY - 1} Q${nose} ${noseY} ${nose} ${noseY + 3} L${nose - 4} ${sill} ${archedSill(nose, tail, rw, fw, sill)}
+        M${cx1 - 14} ${midY + 1} Q${cx1 - 4} ${ctop} ${cx1 + 18} ${ctop} L${cx2 - 18} ${ctop} Q${cx2} ${ctop + 1} ${cx2 + 18} ${midY + 1} Z`;
+      glass = `M${cx1 + 4} ${ctop + 9} Q${cx1 + 12} ${ctop + 3} ${cx1 + 26} ${ctop + 3} L${cx2 - 16} ${ctop + 3} Q${cx2 - 2} ${ctop + 4} ${cx2 + 9} ${midY - 3} L${cx1 + 4} ${midY - 3} Z`;
+      // Shark fin, rear wing, splitter, lights
+      const fin = `M${cx1 + 4} ${ctop + 2} Q${(cx1 + tail) / 2 + 8} ${ctop + 2} ${tail + 28} ${wingY + 5} L${tail + 28} ${rearTop} Q${(cx1 + tail) / 2 + 14} ${rearTop - 2} ${cx1 - 10} ${ctop + 13} Z`;
+      extras += `<path d="${fin}" fill="${L.base}"/><path d="${fin}" fill="#000" opacity=".14"/>
+        <path d="M${cx1 + 4} ${ctop + 2} Q${(cx1 + tail) / 2 + 8} ${ctop + 2} ${tail + 28} ${wingY + 5}" fill="none" stroke="rgba(255,255,255,.35)" stroke-width="1"/>
+        <rect x="${tail}" y="${wingY}" width="5" height="${rearTop - wingY + 4}" rx="1.5" fill="#1c1c1f"/>
+        <rect x="${tail + 26}" y="${wingY}" width="4" height="${rearTop - wingY + 4}" rx="1.5" fill="#1c1c1f"/>
+        <path d="M${tail - 2} ${wingY + 1} L${tail + 34} ${wingY - 1} L${tail + 34} ${wingY + 4} L${tail - 2} ${wingY + 6} Z" fill="#1c1c1f"/>
+        <path d="M${fw - 10} ${sill} L${nose + 2} ${sill} L${nose + 2} ${sill + 2} L${fw - 10} ${sill + 2} Z" fill="#141414"/>
+        <rect x="${tail}" y="${rearTop + 3}" width="4" height="7" rx="1" fill="#ff2e2e"/>
+        <path d="M${fw + 20} ${sill - 10} l12 -1 l-2 6 l-10 0 Z" fill="#111" opacity=".6"/>
+        <path d="M${rw + 26} ${midY + 4} l14 0 l-3 6 l-11 0 Z" fill="#111" opacity=".55"/>`;
+      const lx = nose - 14, ly = noseY - 4;
+      const lights = {
+        arrow: `<path d="M${lx - 6} ${ly - 1} L${lx + 8} ${ly + 1} L${lx - 4} ${ly + 3} Z" fill="#fff4c8"/>`,
+        blade: `<rect x="${lx - 2}" y="${ly - 6}" width="3" height="10" rx="1" fill="#fff4c8"/>`,
+        bar: `<rect x="${lx - 10}" y="${ly}" width="18" height="2.5" rx="1" fill="#fff4c8"/>`,
+        y: `<path d="M${lx - 8} ${ly - 3} L${lx} ${ly + 1} L${lx + 8} ${ly - 1} M${lx} ${ly + 1} L${lx + 2} ${ly + 4}" stroke="#fff4c8" stroke-width="2" fill="none"/>`,
+        dot: `<circle cx="${lx}" cy="${ly + 1}" r="2.6" fill="#fff4c8"/><circle cx="${lx - 7}" cy="${ly}" r="1.8" fill="#fff4c8"/>`,
+      };
+      extras += lights[car.light] || lights.bar;
+      num = numberPanel(cx1 - 26, midY + 6, car.num, clsColor);
+      g = midY + 4;
+    }
+    return `<svg viewBox="0 -2 240 82" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <defs><clipPath id="${id}"><path d="${body}"/></clipPath>
+        <linearGradient id="${id}s" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".28"/><stop offset=".45" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".35"/></linearGradient></defs>
+      <ellipse cx="120" cy="76" rx="112" ry="3.5" fill="#000" opacity=".4"/>
+      <path d="${body}" fill="${L.base}"/>
+      <g clip-path="url(#${id})">${liveryShapes(L, g)}<rect x="0" y="${sill - 5}" width="240" height="8" fill="#151517"/><rect x="0" y="0" width="240" height="80" fill="url(#${id}s)"/></g>
+      <path d="${glass}" fill="#18222e"/><path d="${glass}" fill="url(#${id}s)" opacity=".6"/>
+      ${extras}${num}
+      ${wheelSVG(car.rw, car.kind === 'gt3' ? '#3a3d44' : '#c3c8d0')}${wheelSVG(car.fw, car.kind === 'gt3' ? '#3a3d44' : '#c3c8d0')}
+    </svg>`;
+  }
+
+  // =====================================================================
+  // Tap & effects
+  // =====================================================================
+  const $ = (id) => document.getElementById(id);
+  const stage = $('stage');
+  const fx = $('fx');
+  const carEl = $('car');
+  const tapHint = $('tapHint');
   let floatCount = 0;
+  let speedKick = 0;
 
   stage.addEventListener('pointerdown', (e) => {
     if (e.target.closest('button') || e.target.closest('.bonus')) return;
@@ -363,7 +953,7 @@
     void carEl.offsetWidth;
     carEl.classList.add('bump');
     speedKick = Math.min(speedKick + 120, 900);
-    if (tapHint && S.stats.taps > 15) tapHint.classList.add('hidden');
+    if (S.stats.taps > 15) tapHint.classList.add('hidden');
     buzz(4);
   });
 
@@ -383,7 +973,8 @@
     if (S.settings.haptics && navigator.vibrate) { try { navigator.vibrate(p); } catch (e) { /* ignore */ } }
   }
 
-  // Random sponsor bonus that appears on track
+  // Sponsor bonus pickups
+  const bonusGap = () => (45000 + Math.random() * 75000) / (1 + 0.5 * her('fans') + perk('bonusFreq'));
   let nextBonusAt = Date.now() + 30000 + Math.random() * 30000;
   let bonusEl = null;
   const BONUS_ICONS = ['🏁', '🍾', '🏆', '💰'];
@@ -394,11 +985,11 @@
     bonusEl.textContent = BONUS_ICONS[Math.floor(Math.random() * BONUS_ICONS.length)];
     bonusEl.setAttribute('aria-label', 'Sponsor bonus');
     bonusEl.style.left = (12 + Math.random() * 76) + '%';
-    bonusEl.style.top = (22 + Math.random() * 40) + '%';
+    bonusEl.style.top = (24 + Math.random() * 36) + '%';
     bonusEl.addEventListener('pointerdown', (e) => {
       e.stopPropagation();
       const now = Date.now();
-      const reward = Math.max(totalIps(now) * 90, tapValue(now) * 40, 25);
+      const reward = Math.max(totalIps(now) * 90, tapValue(now) * 40, 25) * (1 + perk('bonusVal'));
       earn(reward);
       S.stats.bonuses++;
       const rect = stage.getBoundingClientRect();
@@ -407,87 +998,40 @@
       buzz([20, 30, 20]);
       removeBonus();
     });
-    fx.parentElement.appendChild(bonusEl);
-    setTimeout(() => { if (bonusEl) removeBonus(); }, 10000);
+    stage.appendChild(bonusEl);
+    const mine = bonusEl;
+    setTimeout(() => { if (bonusEl === mine) removeBonus(); }, 10000);
   }
   function removeBonus() {
     if (bonusEl) bonusEl.remove();
     bonusEl = null;
-    nextBonusAt = Date.now() + 45000 + Math.random() * 75000;
+    nextBonusAt = Date.now() + bonusGap();
   }
 
-  // ================= Car =================
-  function carSVG(c) {
-    const body = c.color, trim = c.trim, acc = c.accent;
-    const wheel = (cx) => `
-      <g class="wheel" data-cx="${cx}" data-cy="54">
-        <circle cx="${cx}" cy="54" r="12" fill="#111"/>
-        <circle cx="${cx}" cy="54" r="7.5" fill="#9aa3b2"/>
-        <g stroke="#3b414c" stroke-width="2">
-          <line x1="${cx - 7}" y1="54" x2="${cx + 7}" y2="54"/>
-          <line x1="${cx}" y1="47" x2="${cx}" y2="61"/>
-          <line x1="${cx - 5}" y1="49" x2="${cx + 5}" y2="59"/>
-          <line x1="${cx - 5}" y1="59" x2="${cx + 5}" y2="49"/>
-        </g>
-        <circle cx="${cx}" cy="54" r="2.5" fill="#d33"/>
-      </g>`;
-    if (c.shape === 'gt') {
-      return `<svg viewBox="0 0 200 70" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-        <rect x="6" y="18" width="26" height="4" rx="1.5" fill="${trim}"/>
-        <rect x="14" y="21" width="3" height="12" fill="#222"/>
-        <path d="M6 52 L9 37 Q30 32 58 30 L82 17 Q104 10 130 14 L160 28 Q188 31 195 43 L196 52 Z" fill="${body}"/>
-        <path d="M86 19 Q104 13 127 16 L146 28 L84 29 Z" fill="#1c2633"/>
-        <path d="M100 17 L104 28" stroke="${body}" stroke-width="3"/>
-        <path d="M9 44 L196 44 L196 48 L8 48 Z" fill="${trim}"/>
-        <path d="M150 34 Q172 34 192 40" stroke="${acc}" stroke-width="2" fill="none" opacity=".7"/>
-        <circle cx="72" cy="38" r="8.5" fill="#fff"/>
-        <text x="72" y="41.5" text-anchor="middle" font-size="10" font-weight="900" font-family="Arial, sans-serif" fill="#111">${c.num}</text>
-        <rect x="186" y="38" width="9" height="4" rx="2" fill="#ffe9a8"/>
-        <rect x="4" y="38" width="5" height="4" rx="1" fill="#ff3b3b"/>
-        <rect x="0" y="50" width="200" height="3" fill="#111" opacity=".5"/>
-        ${wheel(45)}${wheel(158)}
-      </svg>`;
-    }
-    return `<svg viewBox="0 0 200 70" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-      <rect x="2" y="14" width="34" height="5" rx="2" fill="${trim}"/>
-      <rect x="2" y="10" width="4" height="14" rx="1" fill="${trim}"/>
-      <rect x="15" y="18" width="3" height="16" fill="#222"/>
-      <path d="M4 50 L6 36 Q24 30 52 30 L70 24 Q88 22 98 24 L112 14 Q128 8 142 16 L150 27 Q178 31 197 45 L197 51 Z" fill="${body}"/>
-      <path d="M50 30 L60 18 L92 17 L98 24" fill="${body}"/>
-      <path d="M113 16 Q128 10 140 17 L146 27 L110 28 Z" fill="#1c2633"/>
-      <path d="M6 44 Q100 40 197 46 L197 50 L5 50 Z" fill="${trim}"/>
-      <path d="M150 32 Q175 36 193 44" stroke="${acc}" stroke-width="2.2" fill="none" opacity=".85"/>
-      <circle cx="78" cy="37" r="8.5" fill="#fff"/>
-      <text x="78" y="40.5" text-anchor="middle" font-size="10" font-weight="900" font-family="Arial, sans-serif" fill="#111">${c.num}</text>
-      <path d="M182 40 L195 44 L194 46 L181 43 Z" fill="#ffe9a8"/>
-      <rect x="3" y="36" width="4" height="7" rx="1" fill="#ff3b3b"/>
-      <rect x="0" y="50" width="200" height="3" fill="#111" opacity=".5"/>
-      ${wheel(42)}${wheel(162)}
-    </svg>`;
-  }
+  // =====================================================================
+  // Stage car + road animation
+  // =====================================================================
   let wheels = [];
   function renderCar() {
-    carEl.innerHTML = carSVG(CLASSES[S.classIdx]);
+    carEl.innerHTML = carSVG(activeCar());
     wheels = [...carEl.querySelectorAll('.wheel')];
+    $('carName').textContent = activeCar().name;
   }
   function applyClassTheme() {
-    const c = CLASSES[S.classIdx];
-    const col = c.name === 'GTP' ? '#c79a12' : c.color;
-    document.documentElement.style.setProperty('--class', col);
-    const badge = document.getElementById('classBadge');
+    const c = CLASSES[S.license];
+    document.documentElement.style.setProperty('--class', c.color);
+    const badge = $('classBadge');
     badge.textContent = c.name;
-    badge.style.background = col;
+    badge.style.background = c.color;
   }
 
-  // Road animation
-  const laneEl = document.getElementById('lane');
-  const curbEl = document.getElementById('curb');
-  let roadOffset = 0, wheelAngle = 0, speedKick = 0, lastFrame = performance.now();
+  const laneEl = $('lane');
+  const curbEl = $('curb');
+  let roadOffset = 0, wheelAngle = 0, lastFrame = performance.now();
   function frame(t) {
     const dt = Math.min(0.05, (t - lastFrame) / 1000);
     lastFrame = t;
-    const ips = cachedIps;
-    let speed = 140 + 70 * Math.log10(ips + 1) + speedKick;
+    let speed = 140 + 70 * Math.log10(cachedIps + 1) + speedKick + (S.race ? 300 : 0);
     if (pushActive()) speed *= 1.5;
     speed = Math.min(speed, 2400);
     speedKick = Math.max(0, speedKick - 900 * dt);
@@ -497,12 +1041,14 @@
     wheelAngle = (wheelAngle + speed * dt * 4) % 360;
     for (const w of wheels) w.setAttribute('transform', `rotate(${wheelAngle} ${w.dataset.cx} ${w.dataset.cy})`);
     updateRaceHud();
+    if (pitOpenAt) pitNeedle.style.left = (needlePos(t) * 100) + '%';
     requestAnimationFrame(frame);
   }
 
-  // ================= UI =================
-  const $ = (id) => document.getElementById(id);
-  const moneyEl = $('money'), ipsEl = $('ips'), tapEl = $('tapVal'), cpEl = $('cpCount');
+  // =====================================================================
+  // UI
+  // =====================================================================
+  const moneyEl = $('money'), ipsEl = $('ips'), tapEl = $('tapVal'), lpEl = $('lpCount'), paceEl = $('paceVal');
   const pushBtn = $('pushBtn'), pushSub = $('pushSub');
   let cachedIps = 0;
 
@@ -512,7 +1058,8 @@
     moneyEl.textContent = money(S.money);
     ipsEl.textContent = money(cachedIps);
     tapEl.textContent = money(tapValue(now));
-    cpEl.textContent = S.cp;
+    paceEl.textContent = Math.round(pace());
+    lpEl.textContent = S.lp;
     if (pushActive(now)) {
       pushBtn.disabled = false;
       pushBtn.classList.add('on');
@@ -531,160 +1078,6 @@
     }
   }
 
-  // --- Team ---
-  const teamList = $('teamList');
-  let teamRows = [];
-  function buildTeam() {
-    teamList.innerHTML = '';
-    teamRows = GENS.map((g, i) => {
-      const row = document.createElement('div');
-      row.className = 'row';
-      row.innerHTML = `
-        <div class="ico">${g.icon}<span class="count">0</span></div>
-        <div class="info">
-          <div class="name">${g.name}</div>
-          <div class="desc">${g.desc}</div>
-          <div class="stat"></div>
-          <div class="mbar"><i></i></div>
-        </div>
-        <button class="buy" type="button"><span class="q"></span><small class="c"></small></button>`;
-      const btn = row.querySelector('.buy');
-      btn.addEventListener('click', () => buyGen(i));
-      teamList.appendChild(row);
-      return { row, btn, count: row.querySelector('.count'), stat: row.querySelector('.stat'), q: row.querySelector('.q'), c: row.querySelector('.c'), bar: row.querySelector('.mbar i'), name: row.querySelector('.name'), desc: row.querySelector('.desc'), ico: row.querySelector('.ico') };
-    });
-    const teaser = document.createElement('div');
-    teaser.className = 'row';
-    teaser.id = 'teamTeaser';
-    teaser.innerHTML = `<div class="ico">❔</div><div class="info"><div class="name">Locked</div><div class="desc">Hire the previous team member to reveal.</div></div>`;
-    teamList.appendChild(teaser);
-  }
-  function renderTeam() {
-    const now = Date.now();
-    let firstHidden = -1;
-    GENS.forEach((g, i) => {
-      const r = teamRows[i];
-      const visible = i === 0 || S.gens[i] > 0 || S.gens[i - 1] > 0;
-      r.row.classList.toggle('hidden', !visible);
-      if (!visible) { if (firstHidden < 0) firstHidden = i; return; }
-      const k = buyQty(i);
-      const cost = costFor(i, k);
-      r.count.textContent = S.gens[i];
-      r.count.classList.toggle('hidden', S.gens[i] === 0);
-      const each = genIps(i, now);
-      r.stat.innerHTML = S.gens[i] > 0
-        ? `${money(each * S.gens[i])}/s <em>· ${money(each)}/s each</em>`
-        : `<em>+${money(each)}/s each</em>`;
-      r.q.textContent = 'x' + k;
-      r.c.textContent = money(cost);
-      r.btn.disabled = S.money < cost;
-      const next = MILESTONES.find(t => S.gens[i] < t);
-      const prev = [...MILESTONES].reverse().find(t => S.gens[i] >= t) || 0;
-      r.bar.style.width = next ? ((S.gens[i] - prev) / (next - prev) * 100) + '%' : '100%';
-      r.bar.parentElement.title = next ? `Next x2 at ${next}` : 'All milestones reached';
-    });
-    $('teamTeaser').classList.toggle('hidden', firstHidden < 0);
-  }
-
-  // --- Upgrades ---
-  const upgList = $('upgList');
-  let upgKey = '';
-  let upgButtons = [];
-  function availableUpgrades() {
-    return UPGRADES.filter(u => !owned.has(u.id) && u.req()).sort((a, b) => a.cost - b.cost);
-  }
-  function renderUpgrades(force) {
-    const list = availableUpgrades();
-    const key = list.map(u => u.id).join(',') + '|' + S.classIdx;
-    if (force || key !== upgKey) {
-      upgKey = key;
-      renderClassCard();
-      upgList.innerHTML = '';
-      const title = document.createElement('div');
-      title.className = 'section-title';
-      title.textContent = `Upgrades · ${owned.size} owned`;
-      upgList.appendChild(title);
-      if (!list.length) {
-        const e = document.createElement('div');
-        e.className = 'empty';
-        e.textContent = 'Keep growing your team to unlock more upgrades.';
-        upgList.appendChild(e);
-      }
-      upgButtons = list.map(u => {
-        const row = document.createElement('div');
-        row.className = 'row';
-        row.innerHTML = `<div class="ico">${u.icon}</div><div class="info"><div class="name"></div><div class="desc"></div></div><button class="buy" type="button"><span>Buy</span><small>${money(u.cost)}</small></button>`;
-        row.querySelector('.name').textContent = u.name;
-        row.querySelector('.desc').textContent = u.desc;
-        const btn = row.querySelector('.buy');
-        btn.addEventListener('click', () => buyUpgrade(u.id));
-        upgList.appendChild(row);
-        return { btn, u };
-      });
-    }
-    let affordable = false;
-    for (const { btn, u } of upgButtons) {
-      btn.disabled = S.money < u.cost;
-      if (!btn.disabled) affordable = true;
-    }
-    const cb = $('classBuy');
-    const next = CLASSES[S.classIdx + 1];
-    if (cb && next) { cb.disabled = S.money < next.cost; if (!cb.disabled) affordable = true; }
-    $('upgDot').classList.toggle('hidden', !affordable);
-  }
-  function renderClassCard() {
-    const box = $('classCard');
-    const cur = CLASSES[S.classIdx];
-    const next = CLASSES[S.classIdx + 1];
-    if (!next) {
-      box.innerHTML = `<div class="class-card" style="--cc:${cur.color === '#16181d' ? '#6b5410' : cur.color}"><div class="info"><div class="tag">CAR CLASS · MAX</div><div class="cname">${cur.name}</div><div class="desc">You're racing in the top class. Go win it all.</div></div></div>`;
-      return;
-    }
-    box.innerHTML = `<div class="class-card" style="--cc:${next.color === '#16181d' ? '#6b5410' : next.color}">
-      <div class="info"><div class="tag">STEP UP FROM ${cur.name} TO</div><div class="cname">${next.name}</div><div class="desc">${next.desc}</div></div>
-      <button id="classBuy" class="buy" type="button"><span>Move up</span><small>${money(next.cost)}</small></button></div>`;
-    $('classBuy').addEventListener('click', buyClass);
-  }
-
-  // --- Races ---
-  const raceList = $('raceList');
-  let raceKey = '';
-  function renderRaces(force) {
-    const key = S.best.join(',') + '|' + (S.race ? S.race.t : -1);
-    const ips = cachedIps;
-    if (force || key !== raceKey) {
-      raceKey = key;
-      raceList.innerHTML = `<div class="section-title">Season calendar · ${trophies()} wins (+${Math.round(trophies() * TROPHY_BONUS * 100)}% income)</div>`;
-      TRACKS.forEach((tr, t) => {
-        const unlocked = trackUnlocked(t);
-        const row = document.createElement('div');
-        row.className = 'row track' + (unlocked ? '' : ' locked');
-        const best = S.best[t];
-        const bestTxt = best ? `<span class="best pos-${Math.min(best, 4)}">Best ${ordinal(best)}${best === 1 ? ' 🏆' : ''}</span>` : '';
-        row.innerHTML = `<div class="ico">${unlocked ? (best === 1 ? '🏆' : '🏁') : '🔒'}</div>
-          <div class="info"><div class="name">${tr.name}</div>
-          <div class="desc">${tr.place} · ${raceDuration(t)}s race</div>
-          <div class="stat" data-pred="${t}"></div>${bestTxt}</div>
-          <button class="buy race-btn" type="button" data-race="${t}"><span>${S.race && S.race.t === t ? 'Racing…' : 'Race'}</span><small>${unlocked ? 'P1: ' + money(prizeFor(t, 1)) : 'Podium prev.'}</small></button>`;
-        const btn = row.querySelector('button');
-        btn.disabled = !unlocked || !!S.race;
-        btn.addEventListener('click', () => startRace(t));
-        raceList.appendChild(row);
-      });
-    }
-    // live predictions
-    let canRace = false;
-    raceList.querySelectorAll('[data-pred]').forEach(el => {
-      const t = +el.dataset.pred;
-      if (!trackUnlocked(t)) { el.innerHTML = `<em>Needs ~${money(TRACKS[t].req)}/s pace</em>`; return; }
-      const p = Math.max(1, Math.min(FIELD, Math.round(predictPos(t, ips))));
-      const label = p === 1 ? 'Favorite to win' : p <= 3 ? 'Podium contender' : p <= 10 ? 'Midfield' : 'Backmarker';
-      el.innerHTML = `Expected ~${ordinal(p)} <em>· ${label}</em>`;
-      if (!S.race && S.best[t] !== 1) canRace = true;
-    });
-    $('raceDot').classList.toggle('hidden', !canRace);
-  }
-
   const raceHud = $('raceHud');
   function updateRaceHud() {
     const r = S.race;
@@ -693,109 +1086,361 @@
     const now = Date.now();
     const remaining = Math.max(0, r.end - now);
     const prog = Math.min(1, 1 - remaining / r.dur);
-    $('raceHudName').textContent = TRACKS[r.t].name;
-    const pos = Math.round(r.grid + (r.finalPos - r.grid) * Math.min(1, prog * 1.25));
-    $('raceHudPos').textContent = ordinal(Math.max(1, pos));
+    const target = r.pit ? racePos(r) : clampPos(r.base);
+    const pos = clampPos(r.grid + (target - r.grid) * Math.min(1, prog * 1.3));
+    $('raceHudName').textContent = `${CLASSES[r.c].name} · ${TRACKS[r.t].name}`;
+    $('raceHudPos').textContent = 'P' + pos;
     $('raceHudBar').style.width = (prog * 100) + '%';
-    $('raceHudTime').textContent = fmtTime(remaining / 1000) + ' left';
+    const hrs = TRACKS[r.t].hours;
+    $('raceHudTime').textContent = hrs >= 3 ? `Hour ${Math.min(Math.floor(prog * hrs) + 1, Math.ceil(hrs))} of ${hrs}` : `${Math.round(prog * 100)}% complete`;
   }
 
-  // --- Season ---
-  function renderSeason() {
-    const gain = cpGain();
-    const box = $('seasonBox');
-    box.innerHTML = `
-      <div class="card">
-        <h3>Championship Points</h3>
-        <div class="big-num">🏆 ${S.cp}</div>
-        <p>Permanent bonus: <b>+${Math.round(S.cp * CP_BONUS * 100)}%</b> income. Season ${S.seasons + 1}.</p>
+  // ---------------- Panels (HTML rebuilt on state change; buttons auto-enable) ----------------
+  const panels = {
+    team: { el: $('teamList'), key: teamKey, html: teamHTML },
+    upgrades: { el: $('upgBox'), key: upgKey, html: upgHTML },
+    garage: { el: $('garageBox'), key: garageKey, html: garageHTML },
+    races: { el: $('raceBox'), key: racesKey, html: racesHTML },
+    legacy: { el: $('legacyBox'), key: legacyKey, html: legacyHTML },
+    more: { el: $('moreBox'), key: moreKey, html: moreHTML },
+  };
+  const panelKeys = {};
+  let activeTab = 'team';
+
+  function econKey() {
+    return [S.license, S.lp, S.seasonWins, S.cars.length, S.ach.length, owned.size, pushActive() ? 1 : 0, S.activeCar, S.drivers.length].join('|');
+  }
+  function teamKey() {
+    return econKey() + S.gens.join(',') + buyMode + (buyMode === 'max' ? GENS.map((_, i) => maxAffordable(i)).join(',') : '');
+  }
+  function upgKey() { return econKey() + availableUpgrades().map(u => u.id).join(','); }
+  function garageKey() { return econKey() + kindParts().join(',') + S.cars.join(',') + her('eng') + her('cars') + (S.race ? 1 : 0) + S.champ.map(c => c.wins || 0).join(','); }
+  function racesKey() {
+    const ch = S.champ[S.raceClass];
+    return econKey() + S.raceClass + '|' + ch.round + '|' + ch.year + '|' + (S.race ? 'r' : '') + '|' + Math.round(pace()) + S.settings.autoRace + her('auto');
+  }
+  function legacyKey() { return [S.lp, S.lpSpent, lpGain(), S.ach.length, JSON.stringify(S.heritage), Math.floor(Math.log10(S.totalEarned + 1) * 4)].join('|'); }
+  function moreKey() { return Math.floor(S.stats.playTime / 5) + '|' + S.stats.taps + '|' + S.settings.haptics + S.teamName; }
+
+  function btn(act, arg, label, sub, cost, extraCls = '') {
+    const costAttr = cost != null ? ` data-cost="${cost}"` : '';
+    return `<button class="buy ${extraCls}" type="button" data-act="${act}" data-arg="${arg}"${costAttr}${cost != null && S.money < cost ? ' disabled' : ''}><span>${label}</span>${sub ? `<small>${sub}</small>` : ''}</button>`;
+  }
+  const lockedBtn = (label, sub) => `<button class="buy" type="button" disabled><span>${label}</span>${sub ? `<small>${sub}</small>` : ''}</button>`;
+
+  // --- Team ---
+  function teamHTML() {
+    const now = Date.now();
+    let html = '';
+    let teaser = false;
+    GENS.forEach((g, i) => {
+      const visible = i === 0 || S.gens[i] > 0 || S.gens[i - 1] > 0;
+      if (!visible) { teaser = true; return; }
+      const k = buyQty(i);
+      const cost = costFor(i, k);
+      const each = genIps(i, now);
+      const next = MILESTONES.find(t => S.gens[i] < t);
+      const prev = [...MILESTONES].reverse().find(t => S.gens[i] >= t) || 0;
+      const prog = next ? (S.gens[i] - prev) / (next - prev) * 100 : 100;
+      html += `<div class="row">
+        <div class="ico">${g.icon}${S.gens[i] ? `<span class="count">${S.gens[i]}</span>` : ''}</div>
+        <div class="info"><div class="name">${g.name}</div><div class="desc">${g.desc}</div>
+          <div class="stat">${S.gens[i] ? `${money(each * S.gens[i])}/s <em>· ${money(each)}/s each</em>` : `<em>+${money(each)}/s each</em>`}</div>
+          <div class="mbar" title="${next ? `Next x2 at ${next}` : 'All milestones reached'}"><i style="width:${prog}%"></i></div></div>
+        ${btn('gen', i, 'x' + k, money(cost), cost)}</div>`;
+    });
+    if (teaser) html += `<div class="row"><div class="ico">❔</div><div class="info"><div class="name">Locked</div><div class="desc">Hire the previous team member to reveal.</div></div></div>`;
+    return html;
+  }
+
+  // --- Upgrades ---
+  function availableUpgrades() { return UPGRADES.filter(u => !owned.has(u.id) && u.req()).sort((a, b) => a.cost - b.cost); }
+  function upgHTML() {
+    const list = availableUpgrades();
+    let html = `<div class="section-title">Upgrades · ${owned.size} owned</div>`;
+    if (!list.length) html += `<div class="empty">Keep growing your team to unlock more upgrades.</div>`;
+    for (const u of list) {
+      html += `<div class="row"><div class="ico">${u.icon}</div><div class="info"><div class="name">${esc(u.name)}</div><div class="desc">${esc(u.desc)}</div></div>${btn('upg', u.id, 'Buy', money(u.cost), u.cost)}</div>`;
+    }
+    return html;
+  }
+
+  // --- Garage ---
+  function garageHTML() {
+    const car = activeCar();
+    const cls = KIND_CLASS[car.kind];
+    const lu = lineup();
+    let html = `<div class="hero" style="--cc:${CLASSES[cls].color}">
+      <div class="hero-car">${carSVG(car)}</div>
+      <div class="hero-name">${esc(car.name)}</div>
+      <div class="hero-tags"><span class="tag" style="background:${CLASSES[cls].color}">${car.kind === 'gt3' ? 'GT3' : CLASSES[cls].name}</span><span>${PERK_TEXT[car.perk[0]](car.perk[1])}</span></div>
+      <div class="pace-line">
+        <div><small>Car</small><b>${car.pace}</b></div><i>×</i>
+        <div><small>Parts</small><b>${partsMult().toFixed(2)}</b></div><i>×</i>
+        <div><small>Drivers</small><b>${driversMult().toFixed(2)}</b></div>${perk('pace') ? `<i>×</i><div><small>Perks</small><b>${(1 + perk('pace')).toFixed(2)}</b></div>` : ''}<i>=</i>
+        <div class="pace-total"><small>Pace</small><b>${Math.round(pace())}</b></div>
+      </div></div>`;
+
+    html += `<div class="section-title">${car.kind === 'gt3' ? 'GT3' : CLASSES[cls].name} development · +${pct(PART_STEP)} pace per level</div>`;
+    PARTS.forEach((p, i) => {
+      const lvl = kindParts()[i];
+      const c = partPrice(i);
+      html += `<div class="row"><div class="ico">${p.icon}<span class="count">${lvl}</span></div>
+        <div class="info"><div class="name">${p.name}</div><div class="desc">${p.desc}</div></div>
+        ${lvl >= PART_MAX ? lockedBtn('MAX', '') : btn('part', i, 'Lv ' + (lvl + 1), money(c), c)}</div>`;
+    });
+
+    html += `<div class="section-title">Drivers · best ${LINEUP_SIZE} race (${lu.length}/${LINEUP_SIZE})</div>`;
+    DRIVERS.forEach((d, i) => {
+      const t = TIERS[d.tier];
+      const hired = S.drivers.includes(i);
+      const inLu = lu.includes(i);
+      // Reveal the market gradually: the first two, then one past each signing.
+      if (!hired && i > 1 && !S.drivers.includes(i - 1)) {
+        if (S.drivers.includes(i - 2) || (i === 2 && !S.drivers.length)) html += `<div class="row dim"><div class="ico">❔</div><div class="info"><div class="name">Scouting…</div><div class="desc">Sign more drivers to find faster talent.</div></div></div>`;
+        return;
+      }
+      html += `<div class="row driver${hired && !inLu ? ' dim' : ''}"><div class="ico helmet" style="--hc:${t.color}">🪖</div>
+        <div class="info"><div class="name">${esc(d.name)} <span class="tier" style="color:${t.color}">${t.name}</span></div>
+        <div class="desc">+${pct(t.pace)} pace · ${PERK_TEXT[d.perk[0]](d.perk[1])}${inLu ? ' · <b class="ok">In lineup</b>' : hired ? ' · Reserve' : ''}</div></div>
+        ${hired ? lockedBtn('Signed', '') : btn('drv', i, 'Sign', money(d.cost), d.cost)}</div>`;
+    });
+
+    html += `<div class="section-title">Showroom · each car adds +${pct(CAR_BONUS)} income</div>`;
+    for (const kind of ['gt3', 'lmp2', 'gtp']) {
+      const c = KIND_CLASS[kind];
+      html += `<div class="kind-title"><span class="dotc" style="background:${CLASSES[c].color}"></span>${KIND_LABEL[kind]}</div>`;
+      // Licenses for this group
+      const licClasses = kind === 'gt3' ? [1] : [c];
+      for (const lc of licClasses) {
+        const L = CLASSES[lc];
+        if (S.license >= lc) continue;
+        const wins = winsInClass(lc - 1);
+        const ready = S.license === lc - 1 && wins >= L.license.wins;
+        const price = licensePrice(lc);
+        html += `<div class="row license"><div class="ico">🎫</div><div class="info"><div class="name">${L.name} license</div>
+          <div class="desc">${L.desc}</div><div class="stat"><em>Needs ${L.license.wins} ${CLASSES[lc - 1].name} wins (${Math.min(wins, L.license.wins)}/${L.license.wins})</em></div></div>
+          ${ready ? btn('lic', lc, 'Buy', money(price), price) : lockedBtn('🔒', S.license < lc - 1 ? `${CLASSES[lc - 1].name} first` : 'Win races')}</div>`;
+      }
+      for (const car2 of CARS.filter(x => x.kind === kind)) {
+        const have = S.cars.includes(car2.id);
+        const active = S.activeCar === car2.id;
+        const licOk = c <= S.license;
+        const price = carPrice(car2);
+        let b;
+        if (active) b = lockedBtn('Active', '✓');
+        else if (have) b = S.race ? lockedBtn('Equip', 'after race') : btn('equip', car2.id, 'Equip', '', null);
+        else if (!licOk) b = lockedBtn('🔒', CLASSES[c].name + ' license');
+        else b = btn('car', car2.id, 'Buy', money(price), price);
+        html += `<div class="row car-row${active ? ' active' : ''}"><div class="thumb">${carSVG(car2)}</div>
+          <div class="info"><div class="name">${esc(car2.name)}</div><div class="desc">Pace ${car2.pace} · ${PERK_TEXT[car2.perk[0]](car2.perk[1])}</div></div>${b}</div>`;
+      }
+    }
+    return html;
+  }
+
+  // --- Races ---
+  function racesHTML() {
+    const car = activeCar();
+    const elig = eligibleClasses(car);
+    let html = `<div class="chips">${CLASSES.map((cl, c) => {
+      const ok = elig.includes(c);
+      const locked = c > S.license;
+      return `<button class="chip${S.raceClass === c ? ' on' : ''}" type="button" data-act="rclass" data-arg="${c}" ${ok && !S.race ? '' : 'disabled'} style="--cc:${cl.color}">${locked ? '🔒 ' : ''}${cl.name}</button>`;
+    }).join('')}</div>`;
+    if (!elig.includes(S.raceClass)) S.raceClass = elig[elig.length - 1];
+    const c = S.raceClass;
+    const ch = S.champ[c];
+    const t = Math.min(ch.round, TRACKS.length - 1);
+    const req = trackReq(c, t, ch.titles || 0);
+    const myPace = pace();
+    const exp = clampPos(expectedPos(myPace / req));
+    const label = exp === 1 ? 'Favorite to win' : exp <= 3 ? 'Podium contender' : exp <= 10 ? 'Midfield' : 'Backmarker';
+    const running = S.race && S.race.c === c;
+    const tr = TRACKS[t];
+    html += `<div class="next-race" style="--cc:${CLASSES[c].color}">
+      <div class="nr-top"><span>${CLASSES[c].name} · Year ${ch.year + 1} · Round ${t + 1}/${TRACKS.length}</span></div>
+      <div class="nr-name">${tr.name}</div><div class="nr-place">${tr.place} · ${tr.hours >= 3 ? tr.hours + ' hours' : 'sprint'} · ${raceDuration(t)}s</div>
+      <div class="nr-grid">
+        <div><small>Your pace</small><b>${Math.round(myPace)}</b></div>
+        <div><small>Field pace</small><b>${Math.round(req)}</b></div>
+        <div><small>Expected</small><b class="pos-${Math.min(exp, 4)}">P${exp}</b></div>
       </div>
-      <div class="card">
-        <h3>End the season</h3>
-        <p>Lifetime prize money earns Championship Points. Starting a new season resets your team, class, upgrades and race results — but your points stay forever.</p>
-        <div class="kv"><span>Points if you reset now</span><span>+${gain}</span></div>
-        <div class="kv"><span>Next point at</span><span>${money(nextCpAt())} lifetime</span></div>
-        <div class="kv"><span>Lifetime earned</span><span>${money(S.totalEarned)}</span></div>
-        <button id="seasonBtn" class="btn" type="button" ${gain > 0 ? '' : 'disabled'}>${gain > 0 ? `New season (+${gain} 🏆)` : `Earn ${money(Math.pow(S.cp + 1, 2) * CP_DIVISOR)} lifetime to unlock`}</button>
-      </div>
-      <div class="card">
-        <h3>Income breakdown</h3>
-        <div class="kv"><span>Car class (${CLASSES[S.classIdx].name})</span><span>x${CLASSES[S.classIdx].mult}</span></div>
-        <div class="kv"><span>Championship Points</span><span>x${(1 + CP_BONUS * S.cp).toFixed(2)}</span></div>
-        <div class="kv"><span>Race wins this season</span><span>x${(1 + TROPHY_BONUS * trophies()).toFixed(2)}</span></div>
-        <div class="kv"><span>Team upgrades</span><span>x${fmt(upgradeProduct('global'))}</span></div>
-      </div>`;
-    $('seasonBtn').addEventListener('click', newSeason);
+      <div class="nr-label">${label} · Win ≈ ${money(prizeFor(c, t, 1, ch.year))}</div>
+      ${running ? `<button class="btn" type="button" disabled>Racing… tap the car to push!</button>`
+        : S.race ? `<button class="btn" type="button" disabled>Already racing</button>`
+        : `<button class="btn" type="button" data-act="race" data-arg="${c}">🏁 Start race</button>`}
+      ${her('auto') ? `<div class="toggle"><span>🤖 Team Manager auto-race</span><button class="switch ${S.settings.autoRace ? 'on' : ''}" type="button" data-act="autorace" data-arg="0" aria-label="Toggle auto race"></button></div>` : ''}
+    </div>`;
+    if (exp > 3) html += `<p class="hint">💡 Upgrade parts or sign drivers in the Garage to raise your pace. Pace 30% above the field means a likely win.</p>`;
+
+    html += `<div class="section-title">Championship standings</div>${standingsHTML(standings(c))}`;
+    html += `<div class="section-title">Calendar · ${winsInClass(c)} ${CLASSES[c].name} wins all-time</div><div class="calendar">`;
+    TRACKS.forEach((tk, i) => {
+      const res = ch.res[i];
+      const cur = i === ch.round;
+      html += `<div class="cal${cur ? ' cur' : ''}"><span class="r">R${i + 1}</span><span class="n">${tk.name}</span><b class="${res ? 'pos-' + Math.min(res, 4) : ''}">${res ? 'P' + res : cur ? 'NEXT' : '—'}</b></div>`;
+    });
+    html += `</div>`;
+    return html;
+  }
+
+  // --- Legacy ---
+  function legacyHTML() {
+    const gain = lpGain();
+    let html = `<div class="card legacy-card">
+      <div class="lp-row"><div><small>Legacy Points</small><div class="big-num">⭐ ${S.lp}</div></div>
+      <div class="lp-side"><div>Unspent <b>${lpFree()}</b></div><div>Income <b>+${Math.round(S.lp * LP_BONUS * 100)}%</b></div></div></div>
+      <p>Lifetime earnings and championship titles earn Legacy Points. Spending them on perks never lowers your income bonus.</p>
+      <div class="kv"><span>New season would give</span><span>+${gain} ⭐</span></div>
+      <div class="kv"><span>Next point at</span><span>${money(nextLpAt())} lifetime</span></div>
+      <button class="btn" type="button" data-act="season" data-arg="0" ${gain > 0 ? '' : 'disabled'}>${gain > 0 ? `Start new season (+${gain} LP)` : 'Earn more to start a new season'}</button>
+    </div>`;
+    html += `<div class="section-title">Legacy perks</div>`;
+    for (const h of HERITAGE) {
+      const lvl = her(h.id);
+      const max = lvl >= h.costs.length;
+      const cost = h.costs[lvl];
+      const can = !max && lpFree() >= cost;
+      html += `<div class="row"><div class="ico">${h.icon}${lvl ? `<span class="count">${lvl}</span>` : ''}</div>
+        <div class="info"><div class="name">${h.name}</div><div class="desc">${lvl ? h.desc(lvl) : ''}${!max ? `${lvl ? ' Next: ' : ''}${h.next(lvl)}.` : ''}</div></div>
+        ${max ? lockedBtn('MAX', '') : `<button class="buy gold" type="button" data-act="her" data-arg="${h.id}" ${can ? '' : 'disabled'}><span>${lvl ? 'Upgrade' : 'Unlock'}</span><small>${cost} LP</small></button>`}</div>`;
+    }
+    html += `<div class="section-title">Achievements · ${S.ach.length}/${ACHIEVEMENTS.length} · +${Math.round(S.ach.length * ACH_BONUS * 100)}% income</div><div class="ach-grid">`;
+    for (const a of ACHIEVEMENTS) {
+      const got = S.ach.includes(a.id);
+      html += `<div class="ach${got ? ' got' : ''}"><span>${got ? a.icon : '🔒'}</span><b>${a.name}</b><small>${a.desc}</small></div>`;
+    }
+    html += `</div>`;
+    return html;
   }
 
   // --- More ---
-  function renderMore() {
+  function moreHTML() {
     const st = S.stats;
-    $('moreBox').innerHTML = `
-      <div class="card">
-        <h3>Stats</h3>
+    return `
+      <div class="card"><h3>Team</h3>
+        <div class="kv"><span>Team name</span><span>${esc(S.teamName)}</span></div>
+        <button class="btn ghost" type="button" data-act="rename" data-arg="0">Rename team</button></div>
+      <div class="card"><h3>Stats</h3>
         <div class="kv"><span>Taps</span><span>${fmt(st.taps)}</span></div>
         <div class="kv"><span>Races entered</span><span>${st.races}</span></div>
         <div class="kv"><span>Race wins</span><span>${st.wins}</span></div>
+        <div class="kv"><span>Titles</span><span>${st.titles.reduce((a, b) => a + b, 0)}</span></div>
+        <div class="kv"><span>Perfect pit stops</span><span>${st.perfectPits}</span></div>
         <div class="kv"><span>Sponsor bonuses caught</span><span>${st.bonuses}</span></div>
-        <div class="kv"><span>Team members</span><span>${fmt(S.gens.reduce((a, b) => a + b, 0))}</span></div>
+        <div class="kv"><span>Team members</span><span>${fmt(teamSize())}</span></div>
+        <div class="kv"><span>Seasons</span><span>${S.seasons + 1}</span></div>
         <div class="kv"><span>This season earned</span><span>${money(S.seasonEarned)}</span></div>
-        <div class="kv"><span>Time played</span><span>${fmtTime(st.playTime)}</span></div>
-      </div>
-      <div class="card">
-        <h3>Settings</h3>
-        <div class="toggle"><span>Vibration</span><button id="hapticsBtn" class="switch ${S.settings.haptics ? 'on' : ''}" type="button" aria-label="Toggle vibration"></button></div>
-        <button id="exportBtn" class="btn ghost" type="button">Copy save code</button>
-        <button id="importBtn" class="btn ghost" type="button">Import save code</button>
-        <button id="resetBtn" class="btn danger" type="button">Reset all progress</button>
-      </div>
-      <div class="card">
-        <h3>How to play</h3>
-        <p>👆 Tap the car for prize money. 🔧 Hire team members for income every second — every 25/50/100… of one kind doubles its output.</p>
-        <p>🔥 Hit <b>PUSH</b> for a short income boost. 💰 Catch sponsor bonuses that pop up on track.</p>
-        <p>🏁 Enter races: a podium unlocks the next round, a win adds +10% income this season. 🏆 Start a new season for permanent Championship Points.</p>
-        <p>Your team keeps earning while you're away (50%, up to 8 hours).</p>
-      </div>
-      <p class="small-print">IMSA Clicker is an unofficial fan-made game and is not affiliated with, endorsed by or sponsored by IMSA or any team, manufacturer or circuit.</p>`;
-    $('hapticsBtn').addEventListener('click', (e) => {
-      S.settings.haptics = !S.settings.haptics;
-      e.currentTarget.classList.toggle('on', S.settings.haptics);
-      buzz(15);
-    });
-    $('exportBtn').addEventListener('click', exportSave);
-    $('importBtn').addEventListener('click', importSave);
-    $('resetBtn').addEventListener('click', () => modal('Reset everything?', '<p>This wipes all progress, including Championship Points. This cannot be undone.</p>', [
+        <div class="kv"><span>Time played</span><span>${fmtTime(st.playTime)}</span></div></div>
+      <div class="card"><h3>Settings</h3>
+        <div class="toggle"><span>Vibration</span><button class="switch ${S.settings.haptics ? 'on' : ''}" type="button" data-act="haptics" data-arg="0" aria-label="Toggle vibration"></button></div>
+        <button class="btn ghost" type="button" data-act="export" data-arg="0">Copy save code</button>
+        <button class="btn ghost" type="button" data-act="import" data-arg="0">Import save code</button>
+        <button class="btn danger" type="button" data-act="reset" data-arg="0">Reset all progress</button></div>
+      <div class="card"><h3>How to play</h3>
+        <p>👆 <b>Tap the car</b> for prize money. 🔧 <b>Hire your team</b> for income every second. Every 25/50/100… of one kind doubles its output.</p>
+        <p>🏎️ <b>Garage:</b> upgrade parts and sign drivers to raise your <b>pace</b>, then buy new cars. Each car has a perk and adds income.</p>
+        <p>🏁 <b>Races:</b> pace decides where you finish. Nail the <b>pit stop</b> (tap in the green) to gain places. Win the championship for Legacy Points.</p>
+        <p>🎫 <b>Move up:</b> win 3 races in a class to unlock the next license: GTD → GTD PRO → LMP2 → GTP.</p>
+        <p>⭐ <b>Legacy:</b> start a new season to cash in lifetime earnings for permanent bonuses and perks.</p>
+        <p>💤 Your team keeps earning while you're away.</p></div>
+      <p class="small-print">IMSA Clicker is an unofficial fan-made game. It is not affiliated with, endorsed by or sponsored by IMSA or any team, manufacturer, driver or circuit. Car and circuit names belong to their owners. Drivers and teams in the game are fictional.</p>`;
+  }
+
+  function renderPanel(name, force) {
+    const p = panels[name];
+    const key = p.key();
+    if (force || key !== panelKeys[name]) {
+      panelKeys[name] = key;
+      p.el.innerHTML = p.html();
+    } else {
+      p.el.querySelectorAll('[data-cost]').forEach(b => { b.disabled = S.money < +b.dataset.cost; });
+    }
+  }
+
+  function renderDots() {
+    const upg = availableUpgrades().some(u => S.money >= u.cost);
+    $('upgDot').classList.toggle('hidden', !upg);
+    const garage = PARTS.some((_, i) => kindParts()[i] < PART_MAX && S.money >= partPrice(i))
+      || CARS.some(c => !S.cars.includes(c.id) && KIND_CLASS[c.kind] <= S.license && S.money >= carPrice(c))
+      || (S.license < 3 && winsInClass(S.license) >= CLASSES[S.license + 1].license.wins && S.money >= licensePrice(S.license + 1));
+    $('garageDot').classList.toggle('hidden', !garage);
+    $('raceDot').classList.toggle('hidden', !!S.race);
+    $('legacyDot').classList.toggle('hidden', !(lpGain() > 0 || HERITAGE.some(h => her(h.id) < h.costs.length && lpFree() >= h.costs[her(h.id)])));
+  }
+
+  // Event delegation for all panel buttons
+  document.getElementById('panels').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-act]');
+    if (!b || b.disabled) return;
+    const a = b.dataset.act, arg = b.dataset.arg;
+    switch (a) {
+      case 'gen': buyGen(+arg); break;
+      case 'upg': buyUpgrade(arg); break;
+      case 'part': buyPart(+arg); break;
+      case 'drv': hireDriver(+arg); break;
+      case 'car': buyCar(arg); break;
+      case 'equip': equipCar(arg); break;
+      case 'lic': buyLicense(+arg); break;
+      case 'race': startRace(+arg); break;
+      case 'rclass': S.raceClass = +arg; break;
+      case 'autorace': S.settings.autoRace = !S.settings.autoRace; break;
+      case 'her': buyHeritage(arg); break;
+      case 'season': newSeason(); break;
+      case 'haptics': S.settings.haptics = !S.settings.haptics; buzz(15); break;
+      case 'export': exportSave(); break;
+      case 'import': importSave(); break;
+      case 'rename': renameTeam(); break;
+      case 'reset': confirmReset(); break;
+    }
+    renderHeader();
+    renderPanel(activeTab, true);
+    renderDots();
+  });
+
+  function renameTeam() {
+    modal('Team name', `<input id="nameInput" class="text-input" maxlength="24" value="${esc(S.teamName)}" />`, [
+      { label: 'Cancel', ghost: true },
+      { label: 'Save', action: () => {
+        const v = $('nameInput').value.trim().slice(0, 24);
+        if (v) S.teamName = v;
+        renderPanel(activeTab, true);
+      } },
+    ]);
+    setTimeout(() => { const i = $('nameInput'); if (i) i.focus(); }, 50);
+  }
+  function confirmReset() {
+    modal('Reset everything?', '<p>This wipes all progress, including Legacy Points and achievements. This cannot be undone.</p>', [
       { label: 'Cancel', ghost: true },
       { label: 'Reset', danger: true, action: () => {
         S = defaults(); owned = new Set(); save();
-        applyClassTheme(); renderCar(); renderAll(true);
+        applyClassTheme(); renderCar(); renderAll();
         tapHint.classList.remove('hidden');
         toast('Progress reset. Back to the garage!');
       } },
-    ]));
+    ]);
   }
-
   function exportSave() {
     save();
     const code = btoa(unescape(encodeURIComponent(JSON.stringify(S))));
     const done = () => toast('📋 Save code copied');
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(code).then(done, () => showCode(code));
-    } else showCode(code);
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(code).then(done, () => showCode(code));
+    else showCode(code);
   }
   function showCode(code) {
-    modal('Your save code', `<textarea readonly style="width:100%;height:120px;border-radius:10px;background:#0f1218;color:#cfd5df;border:1px solid #2b3342;padding:8px;font-size:11px">${code}</textarea>`, [{ label: 'Done' }]);
+    modal('Your save code', `<textarea readonly class="text-input code">${code}</textarea>`, [{ label: 'Done' }]);
   }
   function importSave() {
-    modal('Import save', `<textarea id="importArea" placeholder="Paste save code" style="width:100%;height:120px;border-radius:10px;background:#0f1218;color:#cfd5df;border:1px solid #2b3342;padding:8px;font-size:11px;user-select:text;-webkit-user-select:text"></textarea>`, [
+    modal('Import save', `<textarea id="importArea" class="text-input code" placeholder="Paste save code"></textarea>`, [
       { label: 'Cancel', ghost: true },
       { label: 'Import', action: () => {
         try {
-          const json = decodeURIComponent(escape(atob($('importArea').value.trim())));
-          JSON.parse(json);
-          localStorage.setItem(SAVE_KEY, json);
-          S = load(); owned = new Set(S.upgrades);
-          applyClassTheme(); renderCar(); renderAll(true);
+          const obj = JSON.parse(decodeURIComponent(escape(atob($('importArea').value.trim()))));
+          S = obj.v === 2 ? sanitize(obj) : migrateV1(obj);
+          owned = new Set(S.upgrades);
+          save();
+          applyClassTheme(); renderCar(); renderAll();
           toast('✅ Save imported');
         } catch (e) { toast('❌ That save code is not valid'); }
       } },
@@ -809,7 +1454,7 @@
     toastEl.textContent = msg;
     toastEl.classList.add('show');
     clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => toastEl.classList.remove('show'), 2400);
+    toastTimer = setTimeout(() => toastEl.classList.remove('show'), 2600);
   }
   const modalEl = $('modal');
   const modalQueue = [];
@@ -830,9 +1475,10 @@
       el.className = 'btn' + (b.ghost ? ' ghost' : '') + (b.danger ? ' danger' : '');
       el.textContent = b.label;
       el.addEventListener('click', () => {
+        if (b.action) b.action();
         modalQueue.shift();
         showModal();
-        if (b.action) b.action();
+        renderAll();
       });
       btns.appendChild(el);
     });
@@ -840,73 +1486,90 @@
   }
 
   // --- Tabs ---
-  let activeTab = 'team';
   function switchTab(name) {
     activeTab = name;
     document.querySelectorAll('.tab').forEach(b => b.classList.toggle('active', b.dataset.tab === name));
     document.querySelectorAll('.panel').forEach(p => p.classList.toggle('active', p.dataset.panel === name));
-    renderActive(true);
+    renderPanel(name, true);
   }
   document.querySelectorAll('.tab').forEach(b => b.addEventListener('click', () => switchTab(b.dataset.tab)));
   document.querySelectorAll('[data-buy]').forEach(b => b.addEventListener('click', () => {
     buyMode = b.dataset.buy;
     document.querySelectorAll('[data-buy]').forEach(x => x.classList.toggle('active', x === b));
-    renderTeam();
+    renderPanel('team', true);
   }));
   pushBtn.addEventListener('click', activatePush);
 
-  function renderActive(force) {
-    if (activeTab === 'team') renderTeam();
-    if (activeTab === 'season' && force) renderSeason();
-    if (activeTab === 'more' && force) renderMore();
-  }
-  function renderAll(force) {
+  function renderAll() {
     renderHeader();
-    renderTeam();
-    renderUpgrades(force);
-    renderRaces(force);
-    renderActive(true);
+    renderPanel(activeTab, true);
+    renderDots();
   }
 
-  // ================= Loop =================
+  // =====================================================================
+  // Main loop
+  // =====================================================================
   let lastTick = Date.now();
-  let uiTimer = 0, slowTimer = 0, saveTimer = 0;
+  let uiTimer = 0, slowTimer = 0, saveTimer = 0, autoTimer = 0;
+
+  function checkAchievements() {
+    for (const a of ACHIEVEMENTS) {
+      if (!S.ach.includes(a.id) && a.ok()) {
+        S.ach.push(a.id);
+        toast(`${a.icon} Achievement: ${a.name} (+${pct(ACH_BONUS)} income)`);
+      }
+    }
+  }
 
   function tick() {
     const now = Date.now();
     let dt = (now - lastTick) / 1000;
     lastTick = now;
     if (dt < 0) dt = 0;
-    if (dt > 60) {
-      grantOffline(dt);
-    } else {
+    if (dt > 60) grantOffline(dt);
+    else {
       earn(totalIps(now) * dt);
       S.stats.playTime += dt;
     }
-    if (S.race && now >= S.race.end) finishRace();
+
+    const r = S.race;
+    if (r) {
+      const prog = 1 - (r.end - now) / r.dur;
+      if (!r.pit && !pitOpenAt && prog >= 0.45) {
+        if (document.hidden) r.pit = her('autoPit') ? 'good' : 'slow';
+        else openPit();
+      }
+      if (pitOpenAt && performance.now() - pitOpenAt > 5000) resolvePit(her('autoPit') ? 'good' : 'slow');
+      if (now >= r.end) finishRace();
+    } else if (her('auto') && S.settings.autoRace && !modalQueue.length && canRaceClass(S.raceClass)) {
+      autoTimer += dt;
+      if (autoTimer >= 3) { autoTimer = 0; startRace(S.raceClass, true); }
+    }
     if (!bonusEl && now >= nextBonusAt && !document.hidden) spawnBonus();
 
     uiTimer += dt; slowTimer += dt; saveTimer += dt;
     if (uiTimer >= 0.2) {
       uiTimer = 0;
       renderHeader();
-      renderActive(false);
-      renderUpgrades(false);
+      renderPanel(activeTab, false);
     }
     if (slowTimer >= 1) {
       slowTimer = 0;
-      renderRaces(false);
-      if (activeTab === 'season') renderSeason();
+      checkAchievements();
+      renderDots();
     }
     if (saveTimer >= 5) { saveTimer = 0; save(); }
   }
 
   function grantOffline(seconds) {
-    const s = Math.min(seconds, OFFLINE_CAP_S);
-    const gain = totalIps(Date.now(), false) * s * OFFLINE_RATE;
+    const n = her('night');
+    const cap = [8, 12, 24][n] * 3600;
+    const rate = Math.min(1, [0.5, 0.75, 1][n] + perk('offline'));
+    const s = Math.min(seconds, cap);
+    const gain = totalIps(Date.now(), false) * s * rate;
     if (gain <= 0) return;
     earn(gain);
-    modal('Welcome back!', `<p>While you were away for ${fmtTime(seconds)}, your team earned</p><div class="big-num">${money(gain)}</div><p class="small-print">Offline earnings: ${OFFLINE_RATE * 100}% rate, up to ${OFFLINE_CAP_S / 3600} hours.</p>`, [{ label: 'Collect' }]);
+    modal('Welcome back!', `<p>While you were away for ${fmtTime(seconds)}, your team earned</p><div class="big-num">${money(gain)}</div><p class="small-print">Offline earnings: ${Math.round(rate * 100)}% rate, up to ${cap / 3600} hours.</p>`, [{ label: 'Collect' }]);
   }
 
   document.addEventListener('visibilitychange', () => {
@@ -915,18 +1578,20 @@
   });
   window.addEventListener('pagehide', save);
 
-  // ================= Boot =================
+  // =====================================================================
+  // Boot
+  // =====================================================================
   applyClassTheme();
   renderCar();
-  buildTeam();
   if (S.stats.taps > 15) tapHint.classList.add('hidden');
   const away = (Date.now() - (S.lastSave || Date.now())) / 1000;
   if (away > 60 && S.totalEarned > 0) grantOffline(away);
   else if (S.totalEarned === 0) {
-    modal('🏁 IMSA Clicker', '<p>You run a brand-new endurance racing team with one GTD car and big dreams.</p><p><b>Tap the car</b> to earn prize money, hire your crew, win races and climb all the way to GTP.</p>', [{ label: 'Green flag!' }]);
+    modal('🏁 IMSA Clicker', `<div class="modal-car">${carSVG(activeCar())}</div><p>You run a brand-new endurance team with one GT3 car and big dreams.</p>
+      <p><b>Tap the car</b> for prize money, hire your crew, develop your car and win races to climb from <b>GTD</b> all the way to <b>GTP</b>.</p>`, [{ label: 'Green flag!' }]);
   }
   lastTick = Date.now();
-  renderAll(true);
+  renderAll();
   setInterval(tick, 100);
   requestAnimationFrame(frame);
 
@@ -935,5 +1600,5 @@
   }
 
   // Debug hook for testing in the console.
-  window.__imsa = { get state() { return S; }, fmt, totalIps, tapValue };
+  window.__imsa = { get state() { return S; }, fmt, totalIps, tapValue, pace, carSVG, CARS, trackReq, CLASSES };
 })();

@@ -24,7 +24,7 @@
       </div>
       <div class="badges">
         <div id="classBadge" class="class-badge">GTD</div>
-        <div class="cp" title="Championship Points">🏆 <span id="cpCount">0</span></div>
+        <div class="lp" title="Legacy Points">⭐ <span id="lpCount">0</span></div>
       </div>
     </header>
 
@@ -37,15 +37,23 @@
         <div id="lane" class="lane"></div>
       </div>
       <div id="car" class="car"></div>
+      <div id="carName" class="car-name"></div>
       <div class="hud">
-        <div class="hud-tap">Per tap<b id="tapVal">$1</b></div>
+        <div class="hud-stats">
+          <div class="hud-tap">Per tap<b id="tapVal">$1</b></div>
+          <div class="hud-tap">Pace<b id="paceVal">100</b></div>
+        </div>
         <button id="pushBtn" class="push" type="button">PUSH<small id="pushSub">x2 · 30s</small></button>
       </div>
       <div id="raceHud" class="race-hud hidden">
         <div class="race-hud-top"><span id="raceHudName">Race</span><b id="raceHudPos">P20</b></div>
         <div class="bar"><i id="raceHudBar"></i></div>
-        <div class="race-hud-sub">Tap to push! <span id="raceHudTime">0s</span></div>
+        <div class="race-hud-sub"><span>Tap to push!</span><span id="raceHudTime"></span></div>
       </div>
+      <button id="pitBox" class="pit hidden" type="button">
+        <span class="pit-title">PIT STOP! Tap in the green</span>
+        <span class="pit-bar"><i id="pitZone" class="zone"></i><i id="pitPerfect" class="perfect"></i><i id="pitNeedle" class="needle"></i></span>
+      </button>
       <div id="tapHint" class="tap-hint">TAP THE CAR</div>
       <div id="fx" class="fx"></div>
     </section>
@@ -61,26 +69,19 @@
         </div>
         <div id="teamList" class="list"></div>
       </section>
-      <section class="panel" data-panel="upgrades">
-        <div id="classCard"></div>
-        <div id="upgList" class="list"></div>
-      </section>
-      <section class="panel" data-panel="races">
-        <div id="raceList" class="list"></div>
-      </section>
-      <section class="panel" data-panel="season">
-        <div id="seasonBox"></div>
-      </section>
-      <section class="panel" data-panel="more">
-        <div id="moreBox"></div>
-      </section>
+      <section class="panel" data-panel="upgrades"><div id="upgBox" class="list"></div></section>
+      <section class="panel" data-panel="garage"><div id="garageBox" class="list"></div></section>
+      <section class="panel" data-panel="races"><div id="raceBox"></div></section>
+      <section class="panel" data-panel="legacy"><div id="legacyBox"></div></section>
+      <section class="panel" data-panel="more"><div id="moreBox"></div></section>
     </main>
 
     <nav class="tabs">
       <button class="tab active" data-tab="team" type="button"><span>🔧</span>Team</button>
       <button class="tab" data-tab="upgrades" type="button"><span>⚙️</span>Upgrades<i id="upgDot" class="dot hidden"></i></button>
+      <button class="tab" data-tab="garage" type="button"><span>🏎️</span>Garage<i id="garageDot" class="dot hidden"></i></button>
       <button class="tab" data-tab="races" type="button"><span>🏁</span>Races<i id="raceDot" class="dot hidden"></i></button>
-      <button class="tab" data-tab="season" type="button"><span>🏆</span>Season</button>
+      <button class="tab" data-tab="legacy" type="button"><span>⭐</span>Legacy<i id="legacyDot" class="dot hidden"></i></button>
       <button class="tab" data-tab="more" type="button"><span>☰</span>More</button>
     </nav>
   </div>
