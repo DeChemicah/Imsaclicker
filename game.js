@@ -55,13 +55,6 @@
   const KIND_LABEL = { gt3: 'GT3 · races GTD & GTD PRO', lmp2: 'LMP2 prototypes', gtp: 'GTP hybrid prototypes' };
   const KIND_CLASS = { gt3: 0, lmp2: 2, gtp: 3 };
 
-  // Silhouette presets (side view, facing right, viewBox 240x80)
-  const GT_FRONT = { shape: 'gt', rw: 54, fw: 186, deckY: 36, rearBase: 44, r1: 86, r2: 122, roofY: 21, wsBase: 156, beltY: 40, noseY: 45 };
-  const GT_MID   = { shape: 'gt', rw: 54, fw: 186, deckY: 33, rearBase: 26, r1: 102, r2: 134, roofY: 22, wsBase: 166, beltY: 42, noseY: 47 };
-  const GT_911   = { shape: 'gt', rw: 58, fw: 184, deckY: 40, rearBase: 16, r1: 100, r2: 124, roofY: 20, wsBase: 156, beltY: 41, noseY: 47 };
-  const P_LMP2   = { shape: 'proto', rw: 50, fw: 190, rearTop: 37, midY: 47, frontTop: 42, noseY: 54, cx1: 104, cx2: 156, ctop: 24, wingY: 18 };
-  const P_GTP    = { shape: 'proto', rw: 50, fw: 192, rearTop: 41, midY: 49, frontTop: 40, noseY: 53, cx1: 100, cx2: 160, ctop: 22, wingY: 20 };
-
   const PERK_TEXT = {
     partsDisc: (v) => `Car parts ${Math.round(v * 100)}% cheaper`,
     tap: (v) => `+${Math.round(v * 100)}% tap value`,
@@ -78,50 +71,29 @@
 
   const CARS = [
     // ---- GT3 ----
-    { id: 'lexus',    kind: 'gt3', name: 'Lexus RC F GT3',            price: 0,      pace: 100, perk: ['partsDisc', 0.10], num: 14,  ...GT_FRONT, roofY: 22,
-      liv: { base: '#f3f3f3', p: 'band', c2: '#d61f26', c3: '#151515' } },
-    { id: 'nsx',      kind: 'gt3', name: 'Acura NSX GT3 Evo22',       price: 1e3,    pace: 103, perk: ['tap', 0.25],       num: 93,  ...GT_MID,
-      liv: { base: '#e6e7ec', p: 'nose', c2: '#c8102e', c3: '#151515' } },
-    { id: 'amg',      kind: 'gt3', name: 'Mercedes-AMG GT3 Evo',      price: 1e4,    pace: 106, perk: ['offline', 0.25],   num: 57,  ...GT_FRONT, r2: 124, wsBase: 160,
-      liv: { base: '#bfc4cb', p: 'lower', c2: '#141414', c3: '#00a19b' } },
-    { id: 'aston',    kind: 'gt3', name: 'Aston Martin Vantage GT3',  price: 5e4,    pace: 108, perk: ['bonusVal', 1],     num: 27,  ...GT_FRONT, roofY: 23, deckY: 35,
-      liv: { base: '#0b4d33', p: 'band', c2: '#c6f432', c3: '#ffffff' } },
-    { id: 'mustang',  kind: 'gt3', name: 'Ford Mustang GT3',          price: 2e5,  pace: 111, perk: ['income', 0.15],    num: 64,  ...GT_FRONT, r1: 80, r2: 118, wsBase: 152, noseY: 44,
-      liv: { base: '#16245e', p: 'stripes2', c2: '#ffffff', c3: '#ffffff' } },
-    { id: 'huracan',  kind: 'gt3', name: 'Lamborghini Huracán GT3 Evo2', price: 1e6, pace: 114, perk: ['pushDur', 10],     num: 63,  ...GT_MID, roofY: 23, r1: 104,
-      liv: { base: '#86cf00', p: 'lower', c2: '#141414', c3: '#ffffff' } },
-    { id: 'mclaren',  kind: 'gt3', name: 'McLaren 720S GT3 Evo',      price: 4e6,    pace: 117, perk: ['prize', 0.30],     num: 70,  ...GT_MID, r2: 138, roofY: 21,
-      liv: { base: '#ff7f00', p: 'nose', c2: '#1b1b1b', c3: '#3fd3ff' } },
-    { id: 'bmwm4',    kind: 'gt3', name: 'BMW M4 GT3',                price: 1.5e7,    pace: 120, perk: ['income', 0.20],    num: 1,   ...GT_FRONT, roofY: 21, noseY: 44,
-      liv: { base: '#f5f5f5', p: 'mstripes', c2: '#1c69d4', c3: '#2b2a6e', c4: '#e22718' } },
-    { id: 'ferrari',  kind: 'gt3', name: 'Ferrari 296 GT3',           price: 6e7,    pace: 124, perk: ['pit', 0.40],       num: 62,  ...GT_MID,
-      liv: { base: '#d40000', p: 'band', c2: '#ffe100', c3: '#ffffff' } },
-    { id: 'corvette', kind: 'gt3', name: 'Corvette Z06 GT3.R',        price: 2.5e8,  pace: 128, perk: ['tap', 0.50],       num: 3,   ...GT_MID, r1: 98, roofY: 21, deckY: 34,
-      liv: { base: '#f7c600', p: 'lower', c2: '#1a1a1a', c3: '#ffffff' } },
-    { id: 'p911',     kind: 'gt3', name: 'Porsche 911 GT3 R',         price: 1e9,    pace: 132, perk: ['pace', 0.05],      num: 9,   ...GT_911,
-      liv: { base: '#ffffff', p: 'tail', c2: '#d5001c', c3: '#151515' } },
+    { id: 'lexus',    kind: 'gt3', name: 'Lexus RC F GT3',            price: 0,      pace: 100, perk: ['partsDisc', 0.10], num: 14, },
+    { id: 'nsx',      kind: 'gt3', name: 'Acura NSX GT3 Evo22',       price: 1e3,    pace: 103, perk: ['tap', 0.25],       num: 93, },
+    { id: 'amg',      kind: 'gt3', name: 'Mercedes-AMG GT3 Evo',      price: 1e4,    pace: 106, perk: ['offline', 0.25],   num: 57, },
+    { id: 'aston',    kind: 'gt3', name: 'Aston Martin Vantage GT3',  price: 5e4,    pace: 108, perk: ['bonusVal', 1],     num: 27, },
+    { id: 'mustang',  kind: 'gt3', name: 'Ford Mustang GT3',          price: 2e5,  pace: 111, perk: ['income', 0.15],    num: 64, },
+    { id: 'huracan',  kind: 'gt3', name: 'Lamborghini Huracán GT3 Evo2', price: 1e6, pace: 114, perk: ['pushDur', 10],     num: 9, },
+    { id: 'mclaren',  kind: 'gt3', name: 'McLaren 720S GT3 Evo',      price: 4e6,    pace: 117, perk: ['prize', 0.30],     num: 70, },
+    { id: 'bmwm4',    kind: 'gt3', name: 'BMW M4 GT3',                price: 1.5e7,    pace: 120, perk: ['income', 0.20],    num: 1, },
+    { id: 'ferrari',  kind: 'gt3', name: 'Ferrari 296 GT3',           price: 6e7,    pace: 124, perk: ['pit', 0.40],       num: 62, },
+    { id: 'corvette', kind: 'gt3', name: 'Corvette Z06 GT3.R',        price: 2.5e8,  pace: 128, perk: ['tap', 0.50],       num: 3, },
+    { id: 'p911',     kind: 'gt3', name: 'Porsche 911 GT3 R',         price: 1e9,    pace: 132, perk: ['pace', 0.05],      num: 77, },
     // ---- LMP2 ----
-    { id: 'riley',    kind: 'lmp2', name: 'Riley Mk. 30',             price: 1e10,    pace: 300, perk: ['bonusFreq', 0.5],  num: 52,  ...P_LMP2,
-      liv: { base: '#5b2c83', p: 'band', c2: '#f0c419', c3: '#ffffff' } },
-    { id: 'ligier',   kind: 'lmp2', name: 'Ligier JS P217',           price: 5e10,    pace: 308, perk: ['income', 0.20],    num: 18,  ...P_LMP2, ctop: 25,
-      liv: { base: '#ff6a13', p: 'nose', c2: '#151515', c3: '#ffffff' } },
-    { id: 'dallara',  kind: 'lmp2', name: 'Dallara P217',             price: 2.5e11,    pace: 316, perk: ['raceSpeed', 0.15], num: 81,  ...P_LMP2, rearTop: 36,
-      liv: { base: '#ffd100', p: 'lower', c2: '#1d1d1d', c3: '#e4002b' } },
-    { id: 'oreca',    kind: 'lmp2', name: 'ORECA 07',                 price: 1e12,   pace: 326, perk: ['pace', 0.05],      num: 11,  ...P_LMP2, ctop: 23, frontTop: 41,
-      liv: { base: '#0057b8', p: 'band', c2: '#ffffff', c3: '#e4002b' } },
+    { id: 'riley',    kind: 'lmp2', name: 'Riley Mk. 30',             price: 1e10,    pace: 300, perk: ['bonusFreq', 0.5],  num: 52, },
+    { id: 'ligier',   kind: 'lmp2', name: 'Ligier JS P217',           price: 5e10,    pace: 308, perk: ['income', 0.20],    num: 18, },
+    { id: 'dallara',  kind: 'lmp2', name: 'Dallara P217',             price: 2.5e11,    pace: 316, perk: ['raceSpeed', 0.15], num: 81, },
+    { id: 'oreca',    kind: 'lmp2', name: 'ORECA 07',                 price: 1e12,   pace: 326, perk: ['pace', 0.05],      num: 11, },
     // ---- GTP ----
-    { id: 'arx06',    kind: 'gtp', name: 'Acura ARX-06',              price: 1e13,   pace: 640, perk: ['tap', 1],          num: 10,  ...P_GTP, light: 'arrow',
-      liv: { base: '#141414', p: 'nose', c2: '#e4002b', c3: '#ffffff' } },
-    { id: 'vseries',  kind: 'gtp', name: 'Cadillac V-Series.R',       price: 5e13,   pace: 655, perk: ['income', 0.25],    num: 31,  ...P_GTP, ctop: 21, light: 'blade',
-      liv: { base: '#14213d', p: 'band', c2: '#ffffff', c3: '#d4af37' } },
-    { id: 'bmwgtp',   kind: 'gtp', name: 'BMW M Hybrid V8',           price: 2.5e14, pace: 670, perk: ['prize', 0.50],     num: 24,  ...P_GTP, light: 'bar',
-      liv: { base: '#f2f2f2', p: 'mstripes', c2: '#1c69d4', c3: '#2b2a6e', c4: '#e22718' } },
-    { id: 'sc63',     kind: 'gtp', name: 'Lamborghini SC63',          price: 1e15,   pace: 685, perk: ['pushDur', 20],     num: 63,  ...P_GTP, frontTop: 39, light: 'y',
-      liv: { base: '#3d7a1f', p: 'lower', c2: '#141414', c3: '#c6f432' } },
-    { id: 'valkyrie', kind: 'gtp', name: 'Aston Martin Valkyrie',     price: 5e15,   pace: 700, perk: ['raceSpeed', 0.20], num: 23,  ...P_GTP, ctop: 20, cx1: 104, light: 'dot',
-      liv: { base: '#00543c', p: 'band', c2: '#cedc00', c3: '#ffffff' } },
-    { id: 'p963',     kind: 'gtp', name: 'Porsche 963',               price: 2.5e16, pace: 720, perk: ['pace', 0.08],      num: 7,   ...P_GTP, light: 'bar',
-      liv: { base: '#ffffff', p: 'tail', c2: '#d5001c', c3: '#151515' } },
+    { id: 'arx06',    kind: 'gtp', name: 'Acura ARX-06',              price: 1e13,   pace: 640, perk: ['tap', 1],          num: 10, },
+    { id: 'vseries',  kind: 'gtp', name: 'Cadillac V-Series.R',       price: 5e13,   pace: 655, perk: ['income', 0.25],    num: 31, },
+    { id: 'bmwgtp',   kind: 'gtp', name: 'BMW M Hybrid V8',           price: 2.5e14, pace: 670, perk: ['prize', 0.50],     num: 24, },
+    { id: 'sc63',     kind: 'gtp', name: 'Lamborghini SC63',          price: 1e15,   pace: 685, perk: ['pushDur', 20],     num: 63, },
+    { id: 'valkyrie', kind: 'gtp', name: 'Aston Martin Valkyrie',     price: 5e15,   pace: 700, perk: ['raceSpeed', 0.20], num: 23, },
+    { id: 'p963',     kind: 'gtp', name: 'Porsche 963',               price: 2.5e16, pace: 720, perk: ['pace', 0.08],      num: 7, },
   ];
   const CAR_BY_ID = Object.fromEntries(CARS.map(c => [c.id, c]));
 
@@ -782,150 +754,10 @@
   }
 
   // =====================================================================
-  // Car artwork (SVG)
+  // Car artwork (see cars.js)
   // =====================================================================
-  let svgUid = 0;
-  function quadPoint(p0, c, p1, t) {
-    const u = 1 - t;
-    return [u * u * p0[0] + 2 * u * t * c[0] + t * t * p1[0], u * u * p0[1] + 2 * u * t * c[1] + t * t * p1[1]];
-  }
-  function quadAtY(p0, c, p1, y) {
-    // monotonic curve: find t where curve crosses y
-    let lo = 0, hi = 1;
-    const dir = p1[1] > p0[1] ? 1 : -1;
-    for (let k = 0; k < 24; k++) {
-      const m = (lo + hi) / 2;
-      const py = quadPoint(p0, c, p1, m)[1];
-      if ((py - y) * dir < 0) lo = m; else hi = m;
-    }
-    return (lo + hi) / 2;
-  }
-
-  function liveryShapes(L, g) {
-    const { p, c2, c3, c4 } = L;
-    switch (p) {
-      case 'band': return `<path d="M112 0 L146 0 L116 80 L82 80 Z" fill="${c2}"/><path d="M148 0 L156 0 L126 80 L118 80 Z" fill="${c3}"/>`;
-      case 'nose': return `<path d="M176 0 L240 0 L240 80 L150 80 Z" fill="${c2}"/><path d="M170 0 L176 0 L150 80 L144 80 Z" fill="${c3}"/>`;
-      case 'tail': return `<path d="M0 0 L66 0 L92 80 L0 80 Z" fill="${c2}"/><path d="M66 0 L73 0 L99 80 L92 80 Z" fill="${c3}"/>`;
-      case 'lower': return `<path d="M0 ${g + 4} L150 ${g + 1} Q200 ${g - 2} 240 ${g - 10} L240 80 L0 80 Z" fill="${c2}"/><path d="M0 ${g + 2} L150 ${g - 1} Q200 ${g - 4} 240 ${g - 12} L240 ${g - 9} Q200 ${g - 1} 150 ${g + 2} L0 ${g + 5} Z" fill="${c3}"/>`;
-      case 'mstripes': return `<path d="M118 0 L126 0 L100 80 L92 80 Z" fill="${c2}"/><path d="M128 0 L136 0 L110 80 L102 80 Z" fill="${c3}"/><path d="M138 0 L146 0 L120 80 L112 80 Z" fill="${c4}"/>`;
-      case 'stripes2': return `<rect x="0" y="${g - 4}" width="240" height="3" fill="${c2}"/><rect x="0" y="${g + 1}" width="240" height="3" fill="${c3}"/>`;
-      default: return '';
-    }
-  }
-
-  function wheelSVG(cx, rim) {
-    const cy = 60;
-    return `<g class="wheel" data-cx="${cx}" data-cy="${cy}">
-      <circle cx="${cx}" cy="${cy}" r="16" fill="#0d0d0f"/>
-      <circle cx="${cx}" cy="${cy}" r="14.2" fill="#1b1c20"/>
-      <circle cx="${cx}" cy="${cy}" r="10.5" fill="${rim}"/>
-      <circle cx="${cx}" cy="${cy}" r="7.5" fill="#5a1d1d" opacity=".55"/>
-      <g stroke="#2b2f36" stroke-width="2.4" stroke-linecap="round">
-        <line x1="${cx - 9.5}" y1="${cy}" x2="${cx + 9.5}" y2="${cy}"/><line x1="${cx}" y1="${cy - 9.5}" x2="${cx}" y2="${cy + 9.5}"/>
-        <line x1="${cx - 6.7}" y1="${cy - 6.7}" x2="${cx + 6.7}" y2="${cy + 6.7}"/><line x1="${cx - 6.7}" y1="${cy + 6.7}" x2="${cx + 6.7}" y2="${cy - 6.7}"/>
-      </g>
-      <circle cx="${cx}" cy="${cy}" r="3" fill="#e33"/>
-    </g>`;
-  }
-
-  // Bottom edge of the body with wheel arches cut out (drawn right to left).
-  function archedSill(nose, tail, rw, fw, sill) {
-    const R = 19.5;
-    return `L${fw + R} ${sill} A${R} ${R} 0 0 0 ${fw - R} ${sill} L${rw + R} ${sill} A${R} ${R} 0 0 0 ${rw - R} ${sill} L${tail} ${sill} Z`;
-  }
-
-  function numberPanel(x, y, num, cls) {
-    return `<rect x="${x - 11}" y="${y - 8}" width="22" height="16" rx="3" fill="#fff"/>
-      <rect x="${x - 11}" y="${y + 5}" width="22" height="3" rx="1" fill="${cls}"/>
-      <text x="${x}" y="${y + 3.5}" text-anchor="middle" font-size="10.5" font-weight="900" font-family="Arial, Helvetica, sans-serif" fill="#111">${num}</text>`;
-  }
-
   function carSVG(car) {
-    const id = 'c' + (++svgUid);
-    const L = car.liv;
-    const clsColor = CLASSES[KIND_CLASS[car.kind]].color;
-    const sill = 62;
-    let body, glass, extras = '', num, g;
-    if (car.shape === 'gt') {
-      const { rw, fw, deckY, rearBase, r1, r2, roofY, wsBase, beltY, noseY } = car;
-      const tail = 8, nose = 232;
-      const rg0 = [rearBase, deckY - 1], rgc = [(rearBase + r1) / 2, roofY + 2], rg1 = [r1, roofY];
-      const ws0 = [r2, roofY], wsc = [r2 + (wsBase - r2) * 0.45, roofY + 1], ws1 = [wsBase, beltY];
-      body = `M${tail} ${sill} L${tail} ${deckY + 8} Q${tail} ${deckY} ${tail + 10} ${deckY}
-        L${rg0[0]} ${rg0[1]} Q${rgc[0]} ${rgc[1]} ${rg1[0]} ${rg1[1]} L${ws0[0]} ${ws0[1]} Q${wsc[0]} ${wsc[1]} ${ws1[0]} ${ws1[1]}
-        Q${(wsBase + nose) / 2} ${beltY + 1} ${nose - 9} ${noseY} Q${nose} ${noseY + 1} ${nose} ${noseY + 9} L${nose - 3} ${sill} ${archedSill(nose, tail, rw, fw, sill)}`;
-      // Glass: sample the roofline, then inset it.
-      const wy = Math.min(beltY, deckY + 4) - 1;
-      // Rear glass starts at most ~32px behind the roof (engine cover / C-pillar behind it).
-      let ta = quadAtY(rg0, rgc, rg1, wy);
-      for (let k = 0; k < 40 && quadPoint(rg0, rgc, rg1, ta)[0] < r1 - 32; k++) ta += 0.025;
-      ta = Math.min(ta, 0.9);
-      const tb = quadAtY(ws0, wsc, ws1, wy);
-      const pts = [];
-      for (let k = 0; k <= 8; k++) pts.push(quadPoint(rg0, rgc, rg1, ta + (1 - ta) * k / 8));
-      for (let k = 0; k <= 8; k++) pts.push(quadPoint(ws0, wsc, ws1, tb * k / 8));
-      const cx = (pts[0][0] + pts[pts.length - 1][0]) / 2;
-      const inset = pts.map(([x, y]) => [x + (x < cx ? 3.5 : -3.5), y + 2.8]);
-      glass = 'M' + inset.map(p => p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join(' L') + ` L${inset[inset.length - 1][0].toFixed(1)} ${wy} L${(inset[0][0] + 4).toFixed(1)} ${wy} Z`;
-      const pillarX = r1 + (r2 - r1) * 0.62;
-      extras += `<path d="M${pillarX} ${roofY + 2} L${pillarX + 4} ${wy}" stroke="${L.base}" stroke-width="2.6"/>`;
-      // Swan-neck rear wing + splitter + lights + mirror
-      const wx = tail + 2, wY = Math.min(deckY - 12, roofY + 6);
-      extras += `<path d="M${wx + 14} ${deckY} Q${wx + 12} ${wY + 4} ${wx + 18} ${wY + 2}" stroke="#1c1c1f" stroke-width="2.4" fill="none"/>
-        <path d="M${wx} ${wY} L${wx + 30} ${wY - 1} L${wx + 30} ${wY + 3} L${wx} ${wY + 4} Z" fill="#1c1c1f"/>
-        <rect x="${wx - 1}" y="${wY - 5}" width="3" height="12" rx="1" fill="#1c1c1f"/>
-        <path d="M${nose - 26} ${sill} L${nose + 4} ${sill} L${nose + 4} ${sill + 2} L${nose - 26} ${sill + 2} Z" fill="#141414"/>
-        <path d="M${nose - 12} ${noseY + 1} Q${nose - 3} ${noseY + 1} ${nose - 1} ${noseY + 5} L${nose - 13} ${noseY + 4} Z" fill="#fff4c8"/>
-        <rect x="${tail}" y="${deckY + 3}" width="5" height="4" rx="1" fill="#ff2e2e"/>
-        <path d="M${wsBase - 8} ${beltY - 2} l7 -4 l3 0 l-1 5 Z" fill="${L.base}" stroke="#111" stroke-width=".6"/>
-        <path d="M${rw - 24} ${sill} A24 24 0 0 1 ${rw + 24} ${sill}" fill="none" stroke="rgba(0,0,0,.28)" stroke-width="1.6"/>
-        <path d="M${fw - 24} ${sill} A24 24 0 0 1 ${fw + 24} ${sill}" fill="none" stroke="rgba(0,0,0,.28)" stroke-width="1.6"/>
-        <path d="M${fw + 24} ${sill - 8} l10 0 l-2 5 l-8 0 Z" fill="#111" opacity=".7"/>`;
-      num = numberPanel((r1 + r2) / 2 + 2, beltY + 9, car.num, clsColor);
-      g = beltY + 10;
-    } else {
-      const { rw, fw, rearTop, midY, frontTop, noseY, cx1, cx2, ctop, wingY } = car;
-      const tail = 4, nose = 236;
-      body = `M${tail} ${sill} L${tail} ${rearTop + 6} Q${tail} ${rearTop + 1} ${tail + 12} ${rearTop}
-        Q${rw} ${rearTop - 6} ${rw + 24} ${rearTop + 1} Q${rw + 34} ${midY} ${rw + 44} ${midY}
-        L${fw - 32} ${midY} Q${fw - 24} ${frontTop - 2} ${fw - 4} ${frontTop - 3} Q${fw + 16} ${frontTop - 2} ${fw + 26} ${frontTop + 4}
-        Q${fw + 34} ${noseY - 4} ${nose - 4} ${noseY - 1} Q${nose} ${noseY} ${nose} ${noseY + 3} L${nose - 4} ${sill} ${archedSill(nose, tail, rw, fw, sill)}
-        M${cx1 - 14} ${midY + 1} Q${cx1 - 4} ${ctop} ${cx1 + 18} ${ctop} L${cx2 - 18} ${ctop} Q${cx2} ${ctop + 1} ${cx2 + 18} ${midY + 1} Z`;
-      glass = `M${cx1 + 4} ${ctop + 9} Q${cx1 + 12} ${ctop + 3} ${cx1 + 26} ${ctop + 3} L${cx2 - 16} ${ctop + 3} Q${cx2 - 2} ${ctop + 4} ${cx2 + 9} ${midY - 3} L${cx1 + 4} ${midY - 3} Z`;
-      // Shark fin, rear wing, splitter, lights
-      const fin = `M${cx1 + 4} ${ctop + 2} Q${(cx1 + tail) / 2 + 8} ${ctop + 2} ${tail + 28} ${wingY + 5} L${tail + 28} ${rearTop} Q${(cx1 + tail) / 2 + 14} ${rearTop - 2} ${cx1 - 10} ${ctop + 13} Z`;
-      extras += `<path d="${fin}" fill="${L.base}"/><path d="${fin}" fill="#000" opacity=".14"/>
-        <path d="M${cx1 + 4} ${ctop + 2} Q${(cx1 + tail) / 2 + 8} ${ctop + 2} ${tail + 28} ${wingY + 5}" fill="none" stroke="rgba(255,255,255,.35)" stroke-width="1"/>
-        <rect x="${tail}" y="${wingY}" width="5" height="${rearTop - wingY + 4}" rx="1.5" fill="#1c1c1f"/>
-        <rect x="${tail + 26}" y="${wingY}" width="4" height="${rearTop - wingY + 4}" rx="1.5" fill="#1c1c1f"/>
-        <path d="M${tail - 2} ${wingY + 1} L${tail + 34} ${wingY - 1} L${tail + 34} ${wingY + 4} L${tail - 2} ${wingY + 6} Z" fill="#1c1c1f"/>
-        <path d="M${fw - 10} ${sill} L${nose + 2} ${sill} L${nose + 2} ${sill + 2} L${fw - 10} ${sill + 2} Z" fill="#141414"/>
-        <rect x="${tail}" y="${rearTop + 3}" width="4" height="7" rx="1" fill="#ff2e2e"/>
-        <path d="M${fw + 20} ${sill - 10} l12 -1 l-2 6 l-10 0 Z" fill="#111" opacity=".6"/>
-        <path d="M${rw + 26} ${midY + 4} l14 0 l-3 6 l-11 0 Z" fill="#111" opacity=".55"/>`;
-      const lx = nose - 14, ly = noseY - 4;
-      const lights = {
-        arrow: `<path d="M${lx - 6} ${ly - 1} L${lx + 8} ${ly + 1} L${lx - 4} ${ly + 3} Z" fill="#fff4c8"/>`,
-        blade: `<rect x="${lx - 2}" y="${ly - 6}" width="3" height="10" rx="1" fill="#fff4c8"/>`,
-        bar: `<rect x="${lx - 10}" y="${ly}" width="18" height="2.5" rx="1" fill="#fff4c8"/>`,
-        y: `<path d="M${lx - 8} ${ly - 3} L${lx} ${ly + 1} L${lx + 8} ${ly - 1} M${lx} ${ly + 1} L${lx + 2} ${ly + 4}" stroke="#fff4c8" stroke-width="2" fill="none"/>`,
-        dot: `<circle cx="${lx}" cy="${ly + 1}" r="2.6" fill="#fff4c8"/><circle cx="${lx - 7}" cy="${ly}" r="1.8" fill="#fff4c8"/>`,
-      };
-      extras += lights[car.light] || lights.bar;
-      num = numberPanel(cx1 - 26, midY + 6, car.num, clsColor);
-      g = midY + 4;
-    }
-    return `<svg viewBox="0 -2 240 82" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-      <defs><clipPath id="${id}"><path d="${body}"/></clipPath>
-        <linearGradient id="${id}s" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".28"/><stop offset=".45" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".35"/></linearGradient></defs>
-      <ellipse cx="120" cy="76" rx="112" ry="3.5" fill="#000" opacity=".4"/>
-      <path d="${body}" fill="${L.base}"/>
-      <g clip-path="url(#${id})">${liveryShapes(L, g)}<rect x="0" y="${sill - 5}" width="240" height="8" fill="#151517"/><rect x="0" y="0" width="240" height="80" fill="url(#${id}s)"/></g>
-      <path d="${glass}" fill="#18222e"/><path d="${glass}" fill="url(#${id}s)" opacity=".6"/>
-      ${extras}${num}
-      ${wheelSVG(car.rw, car.kind === 'gt3' ? '#3a3d44' : '#c3c8d0')}${wheelSVG(car.fw, car.kind === 'gt3' ? '#3a3d44' : '#c3c8d0')}
-    </svg>`;
+    return window.CarArt.svg(car.id, { num: car.num, cls: CLASSES[KIND_CLASS[car.kind]].color });
   }
 
   // =====================================================================

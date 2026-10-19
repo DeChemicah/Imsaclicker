@@ -470,7 +470,7 @@ button {
   font-size: 10px; font-weight: 800; letter-spacing: 1px; text-transform: uppercase;
   color: rgba(255,255,255,.55); white-space: nowrap; pointer-events: none;
 }
-.tap-hint { bottom: 11%; }
+.tap-hint { bottom: auto; top: 36%; }
 
 .pit {
   position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);

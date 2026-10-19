@@ -19,7 +19,7 @@ It's an installable PWA: use **Add to Home Screen** for a full-screen app that a
 - **Team**: hire 12 kinds of team members for income every second. Owning 25, 50, 100, 200 or 400 of one kind doubles its output.
 - **Upgrades**: multipliers for team members, taps, all income, PUSH and race prizes.
 - **Garage**
-  - **21 IMSA-style cars**, each with its own silhouette and livery. **GT3** cars (Lexus RC F, NSX, AMG, Vantage, Mustang, Huracán, 720S, M4, 296, Corvette Z06, 911 GT3 R) race in GTD and GTD PRO. **LMP2** has the Riley, Ligier, Dallara and ORECA. **GTP** has the ARX-06, V-Series.R, M Hybrid V8, SC63, Valkyrie and 963.
+  - **21 IMSA cars** drawn to scale from the real cars, with team-style liveries, brand wordmarks, badges and real race numbers. **GT3** cars (Lexus RC F, NSX, AMG, Vantage, Mustang, Huracán, 720S, M4, 296, Corvette Z06, 911 GT3 R) race in GTD and GTD PRO. **LMP2** has the Riley, Ligier, Dallara and ORECA. **GTP** has the ARX-06, V-Series.R, M Hybrid V8, SC63, Valkyrie and 963.
   - Each car has its own **pace** and a **perk**. Every car you own adds +5% income. You can buy and swap cars within a class at any time.
   - **Car development**: tires, brakes, suspension, gearbox, aero and engine. Each level adds +4% pace. GT3, LMP2 and GTP each have their own development.
   - **Drivers**: sign Bronze, Silver, Gold and Platinum drivers. Your best three form the lineup and add pace and perks.

@@ -1,6 +1,6 @@
 // Offline cache for the app shell. Bump VERSION when shipping changes.
-const VERSION = 'imsaclicker-v2';
-const ASSETS = ['./', 'index.html', 'styles.css', 'game.js', 'manifest.webmanifest', 'icons/icon.svg', 'icons/icon-192.png', 'icons/icon-512.png'];
+const VERSION = 'imsaclicker-v3';
+const ASSETS = ['./', 'index.html', 'styles.css', 'cars.js', 'game.js', 'manifest.webmanifest', 'icons/icon.svg', 'icons/icon-192.png', 'icons/icon-512.png'];
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(VERSION).then((c) => c.addAll(ASSETS)).then(() => self.skipWaiting()));
